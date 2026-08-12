@@ -1589,7 +1589,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
                 selectedProject === '1'
-                  ? "btn-primary-green bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
+                  ? "btn-primary-green green-solid bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
               )}
             >
@@ -1603,7 +1603,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
                 selectedProject === '2'
-                  ? "btn-primary-green bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
+                  ? "btn-primary-green green-solid bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
               )}
             >
@@ -1617,7 +1617,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
                 selectedProject === 'all'
-                  ? "btn-primary-green bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
+                  ? "btn-primary-green green-solid bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
               )}
             >
@@ -1652,16 +1652,29 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           {/* Quick Compare Toggle Button */}
           <button
             onClick={() => setComparePrevious(prev => !prev)}
+            data-active-green={comparePrevious ? "true" : undefined}
+            style={comparePrevious ? { backgroundColor: '#00FFBB', color: '#000000', borderColor: '#00FFBB' } : undefined}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 border rounded-[8px] transition-all text-xs font-mono font-bold focus:outline-none shadow-sm shrink-0",
               comparePrevious
-                ? "bg-[#00FFBB]/15 border-[#00FFBB]/60 text-[#00FFBB]"
+                ? "btn-primary-green green-solid bg-[#00FFBB] border-[#00FFBB] text-black font-black"
                 : "bg-[#242424] hover:bg-[#2E2E2E] border-[#262626] text-zinc-400 hover:text-zinc-200"
             )}
             title="Comparar com período anterior equivalente"
           >
-            <History size={14} className={comparePrevious ? "text-[#00FFBB]" : "text-zinc-400"} />
-            <span className="hidden sm:inline">Comparar Período</span>
+            <History
+              size={14}
+              color={comparePrevious ? "#000000" : undefined}
+              stroke={comparePrevious ? "#000000" : "currentColor"}
+              strokeWidth={comparePrevious ? 2.5 : 2}
+              className={comparePrevious ? "text-black stroke-black" : "text-zinc-400"}
+            />
+            <span
+              style={comparePrevious ? { color: '#000000' } : undefined}
+              className={cn("hidden sm:inline", comparePrevious && "text-black font-black")}
+            >
+              Comparar Período
+            </span>
             <div className={cn(
               "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ml-0.5",
               comparePrevious ? "bg-[#00FFBB] border-[#00FFBB]" : "border-zinc-500 bg-transparent"

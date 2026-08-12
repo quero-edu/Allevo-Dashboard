@@ -160,14 +160,26 @@ export const FontesTab: React.FC<FontesTabProps> = ({
                       const isSelected = selectedSourceIndices.includes(source.originalIndex);
 
                       return (
-                        <div 
+                        <div
                           key={source.name} 
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={isSelected}
+                          aria-label={`${source.name}: ${formatNumber(source.count)} vendas. ${isSelected ? 'Remover do filtro' : 'Adicionar ao filtro'}`}
                           onClick={() => setSelectedSourceIndices(prev => 
                             prev.includes(source.originalIndex) 
                               ? prev.filter(i => i !== source.originalIndex)
                               : [...prev, source.originalIndex]
                           )}
-                          className={cn("flex items-center justify-between p-3.5 rounded-[8px] border bg-[#242424] cursor-pointer transition-all group", 
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              setSelectedSourceIndices(prev => prev.includes(source.originalIndex)
+                                ? prev.filter(i => i !== source.originalIndex)
+                                : [...prev, source.originalIndex]);
+                            }
+                          }}
+                          className={cn("flex w-full items-center justify-between p-3.5 rounded-[8px] border bg-[#242424] cursor-pointer transition-all group text-left",
                             isSelected ? "border-[#00FFBB] shadow-lg ring-2 ring-[#00FFBB]/20" : "border-[#262626] shadow-sm hover:shadow-md hover:border-[#383838]"
                           )}
                         >

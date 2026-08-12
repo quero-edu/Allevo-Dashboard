@@ -160,10 +160,20 @@ function MetricCard({
   comparison, comparisonLabel, movingAverageFormatted, onClick 
 }: MetricCardProps) {
   return (
-    <div 
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      aria-pressed={selected}
+      aria-label={`${title}: ${value}. ${selected ? 'Remover do gráfico' : 'Adicionar ao gráfico'}`}
       className={cn(
-        "metric-card rounded-[8px] border p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden",
+        "metric-card rounded-[8px] border p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden text-left w-full",
         isHero 
           ? "ring-1 ring-[#00FFBB]/15 hover:border-[#00FFBB]/50" 
           : "hover:border-slate-500/40",
@@ -336,6 +346,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
   // Lightbox Zoom State
   const [activeLightboxImage, setActiveLightboxImage] = useState<{ name: string; url: string; link?: string; stats?: any } | null>(null);
+  const activeLoadId = useRef(0);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -355,23 +366,26 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
   const loadData = async (proj?: '1' | '2' | 'all') => {
     const targetProj = proj || selectedProject;
+    const loadId = activeLoadId.current + 1;
+    activeLoadId.current = loadId;
     setLoading(true);
     setFetchError(null);
     try {
       const result = await fetchSpreadsheetData(targetProj);
+      if (loadId !== activeLoadId.current) return;
       setData(result);
       setLastUpdated(new Date());
     } catch (error: any) {
+      if (loadId !== activeLoadId.current) return;
       console.error(error);
       setFetchError(error.message || "Erro ao carregar os dados da planilha");
     } finally {
-      setLoading(false);
+      if (loadId === activeLoadId.current) setLoading(false);
     }
   };
 
   const handleSelectProject = (proj: '1' | '2' | 'all') => {
     setSelectedProject(proj);
-    loadData(proj);
   };
 
   useEffect(() => {
@@ -1366,7 +1380,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       if (prev.includes(id)) {
         return prev.filter(m => m !== id);
       }
-      return [...prev, id];
+      return [...prev.slice(-1), id];
     });
   };
 
@@ -1500,8 +1514,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   return (
     <div className="dashboard-shell min-h-screen bg-[#0F1115] text-zinc-100 font-sans pb-24 selection:bg-[#00FFBB]/30 selection:text-[#00FFBB]">
       {/* HEADER */}
-      <header className="bg-[#10141B]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-4 sticky top-0 z-20 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between 2xl:justify-start gap-4 w-full 2xl:w-auto">
+      <header className="bg-[#10141B]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3 sticky top-0 z-20 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between xl:justify-start gap-3 w-full xl:w-auto">
           {/* Top Brand Logo & Profile Badge Row */}
           <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-auto">
             {/* Horizontal Brand Logo Image */}
@@ -1599,7 +1613,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           </div>
 
           {/* Project Switcher Tabs */}
-          <div className="flex bg-white/[0.045] p-1 rounded-[8px] border border-white/10 gap-1 max-w-full overflow-x-auto scrollbar-none shrink-0">
+          <div className="flex bg-white/[0.045] p-1 rounded-[8px] border border-white/10 gap-1 max-w-full overflow-x-auto scrollbar-none shrink-0" aria-label="Selecionar projeto" role="group">
             <button
               onClick={() => handleSelectProject('1')}
               data-active-green={selectedProject === '1' ? "true" : undefined}
@@ -1648,7 +1662,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           </div>
         </div>
         
-        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full 2xl:w-auto">
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full xl:w-auto">
           {/* Quick Moving Average Toggle Button */}
           <button
             onClick={() => setShowMovingAverage(prev => !prev)}
@@ -1661,7 +1675,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             title="Exibir Média Móvel de 7 dias"
           >
             <Activity size={14} className={showMovingAverage ? "text-[#38BDF8]" : "text-zinc-400"} />
-            <span className="hidden sm:inline">Média Móvel (7d)</span>
+            <span className="hidden md:inline">Média Móvel</span>
             <div className={cn(
               "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ml-0.5",
               showMovingAverage ? "bg-[#38BDF8] border-[#38BDF8]" : "border-zinc-500 bg-transparent"
@@ -1694,7 +1708,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             />
             <span
               style={comparePrevious ? ALLEVO_ACTION_TEXT_STYLE : undefined}
-              className={cn("hidden sm:inline", comparePrevious && "!text-[#1A1A1A] font-black")}
+              className={cn("hidden md:inline", comparePrevious && "!text-[#1A1A1A] font-black")}
             >
               Comparar Período
             </span>
@@ -1769,9 +1783,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">Datas Personalizadas</span>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className="text-[10px] text-zinc-300 block mb-1 font-mono font-bold">Data Inicial</span>
+                      <label htmlFor="dashboard-start-date" className="text-[10px] text-zinc-300 block mb-1 font-mono font-bold">Data Inicial</label>
                       <div className="relative flex items-center">
                         <input 
+                          id="dashboard-start-date"
                           type="date" 
                           value={customDates.start}
                           onClick={(e) => {
@@ -1793,9 +1808,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       </div>
                     </div>
                     <div>
-                      <span className="text-[10px] text-zinc-300 block mb-1 font-mono font-bold">Data Final</span>
+                      <label htmlFor="dashboard-end-date" className="text-[10px] text-zinc-300 block mb-1 font-mono font-bold">Data Final</label>
                       <div className="relative flex items-center">
                         <input 
+                          id="dashboard-end-date"
                           type="date" 
                           value={customDates.end}
                           onClick={(e) => {
@@ -1819,55 +1835,6 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   </div>
                 </div>
 
-                {/* Checkbox Comparar com Período Anterior */}
-                <div 
-                  onClick={() => setComparePrevious(prev => !prev)}
-                  className="pt-3 border-t border-[#262626] flex items-center justify-between cursor-pointer select-none group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className={cn(
-                      "w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all shrink-0",
-                      comparePrevious 
-                        ? "bg-[#00FFBB] border-[#00FFBB] shadow-sm shadow-[#00FFBB]/30" 
-                        : "bg-[#242424] border-[#262626] group-hover:border-zinc-400"
-                    )}>
-                      {comparePrevious && <Check size={12} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
-                    </div>
-                    <span className="text-xs font-mono font-bold text-zinc-200 group-hover:text-white transition-colors">
-                      Comparar c/ período anterior
-                    </span>
-                  </div>
-                  {comparePrevious && (
-                    <span className="text-[10px] font-mono font-bold text-[#00FFBB] bg-[#00FFBB]/10 px-2 py-0.5 rounded-[4px] border border-[#00FFBB]/20">
-                      {getPreviousPeriodLabel(dateRange, customDates)}
-                    </span>
-                  )}
-                </div>
-
-                {/* Checkbox Média Móvel (7 dias) */}
-                <div 
-                  onClick={() => setShowMovingAverage(prev => !prev)}
-                  className="pt-2.5 mt-2.5 border-t border-[#262626] flex items-center justify-between cursor-pointer select-none group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className={cn(
-                      "w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all shrink-0",
-                      showMovingAverage 
-                        ? "bg-[#38BDF8] border-[#38BDF8] shadow-sm shadow-[#38BDF8]/30" 
-                        : "bg-[#242424] border-[#262626] group-hover:border-zinc-400"
-                    )}>
-                      {showMovingAverage && <Check size={12} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
-                    </div>
-                    <span className="text-xs font-mono font-bold text-zinc-200 group-hover:text-white transition-colors flex items-center gap-1.5">
-                      <Activity size={13} className="text-[#38BDF8]" /> Média Móvel (7d)
-                    </span>
-                  </div>
-                  {showMovingAverage && (
-                    <span className="text-[10px] font-mono font-bold text-[#38BDF8] bg-[#38BDF8]/10 px-2 py-0.5 rounded-[4px] border border-[#38BDF8]/20">
-                      MM 7D
-                    </span>
-                  )}
-                </div>
               </div>
             )}
           </div>

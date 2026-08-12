@@ -40,11 +40,36 @@
 
 /* IA do Jeito Certo / Allevo tokens from the supplied design system. */
 :root {
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --radius-control: 0.5rem;
+  --radius-panel: 0.75rem;
+  --focus-ring: #66BEFF;
   --allevo-surface-dark: #1A1A1A;
   --allevo-surface-dark-elevated: #252525;
   --allevo-text-on-action: #1A1A1A;
   --allevo-action-start: #00D99F;
   --allevo-action-end: #00FFBB;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin,
+  .animate-pulse {
+    animation: none !important;
+  }
+
+  [class*="transition-"] {
+    transition-duration: 100ms !important;
+  }
 }
 
 .allevo-action,

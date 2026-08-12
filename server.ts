@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -87,7 +88,7 @@ function requireDashboardAuth(req: express.Request, res: express.Response, next:
 
 async function fetchCsv(gid: string, sheetId: string = "1fYoNt2OgXNFRsGg8-5xG8BkZHQJvKpUrHZA8nyeN6W8"): Promise<any[]> {
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
       throw new Error(`A planilha (ID: ${sheetId}) está privada. No Google Sheets, clique em 'Compartilhar' no canto superior direito e mude o acesso para 'Qualquer pessoa com o link pode ver'.`);
@@ -110,6 +111,25 @@ async function fetchCsv(gid: string, sheetId: string = "1fYoNt2OgXNFRsGg8-5xG8Bk
 }
 // Cache em memória para thumbnails do Instagram para alta performance
 const instagramThumbCache = new Map<string, string>();
+const ALLOWED_IMAGE_HOSTS = [
+  "drive.google.com",
+  "lh3.googleusercontent.com",
+  "images.unsplash.com",
+  "fbcdn.net",
+  "cdninstagram.com",
+  "instagram.com",
+  "facebook.com"
+];
+
+function isAllowedImageUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return false;
+    return ALLOWED_IMAGE_HOSTS.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+}
 
 async function getInstagramThumb(url: string): Promise<string> {
   if (!url || !url.includes("instagram.com/p/")) return "";
@@ -354,7 +374,7 @@ async function startServer() {
   app.get("/api/proxy-image", async (req, res) => {
     try {
       const imageUrl = req.query.url as string;
-      if (!imageUrl || !imageUrl.startsWith("http")) {
+      if (!imageUrl || !isAllowedImageUrl(imageUrl)) {
         return res.status(400).send("URL inválida");
       }
       
@@ -362,7 +382,8 @@ async function startServer() {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
-        }
+        },
+        signal: AbortSignal.timeout(7000)
       });
       
       if (!imgRes.ok) {
@@ -370,7 +391,14 @@ async function startServer() {
       }
       
       const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+      const contentLength = Number(imgRes.headers.get("content-length") || "0");
+      if (!contentType.startsWith("image/") || contentLength > 8 * 1024 * 1024) {
+        return res.status(415).send("Imagem externa não suportada");
+      }
       const buffer = await imgRes.arrayBuffer();
+      if (buffer.byteLength > 8 * 1024 * 1024) {
+        return res.status(413).send("Imagem externa muito grande");
+      }
       
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
@@ -381,7 +409,7 @@ async function startServer() {
   });
 
   // API routes FIRST
-  app.all("/api/spreadsheet", async (req, res) => {
+  app.get("/api/spreadsheet", async (req, res) => {
     try {
       const project = (req.query.project as string) || "1";
       const sheetId1 = "1fYoNt2OgXNFRsGg8-5xG8BkZHQJvKpUrHZA8nyeN6W8";
@@ -530,9 +558,6 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
           "utm_medium": item["utm_medium"] || item["Medium"] || "",
           "utm_term": item["utm_term"] || "",
           "utm_content": item["utm_content"] || "",
-          "Nome": item["Nome"] || "",
-          "Email": item["E-mail"] || item["Email"] || "",
-          "Telefone": item["Telefone"] || "",
           "Produto": item["Produto Principal"] || item["Produto"] || ""
         };
       };
@@ -558,8 +583,6 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
       let sheetId = sheetId1;
       if (project === "2") {
         sheetId = sheetId2;
-      } else if (req.query.sheetId) {
-        sheetId = req.query.sheetId as string;
       }
 
       const [metaItems, compradoresItems, criativosItems] = await Promise.all([

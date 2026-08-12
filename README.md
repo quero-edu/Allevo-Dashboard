@@ -5,7 +5,7 @@ Dashboard de performance para campanhas dos livros da AllevoTech, com frontend R
 ## Rodar localmente
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -26,7 +26,7 @@ DASHBOARD_PASSWORD=troque-essa-senha
 DASHBOARD_USER=admin
 ```
 
-Quando `DASHBOARD_PASSWORD` e os dominios/e-mails permitidos estao configurados, o dashboard inteiro e as APIs exigem login.
+Quando `DASHBOARD_PASSWORD` e os dominios/e-mails permitidos estao configurados, o dashboard inteiro e as APIs exigem login. A gestao de dominios e e-mails e feita pelo `.env` do servidor.
 
 ## Deploy com Docker
 
@@ -39,6 +39,8 @@ docker run -d \
   -p 8088:3000 \
   allevo-dashboard:latest
 ```
+
+O Dockerfile gera a versao de producao durante o build e inicia apenas os arquivos compilados. Depois de um `git pull`, recrie a imagem e o container para publicar a nova versao.
 
 ## Deploy no EasyPanel
 

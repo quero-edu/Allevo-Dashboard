@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+*.zip
+tmp.json
+response.json
+temp_sheet*.xlsx
+test*.js
+test*.cjs
+fix-*.cjs

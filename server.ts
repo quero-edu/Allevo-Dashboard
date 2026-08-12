@@ -532,24 +532,16 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
 }
 
       const formatBuyers = (item: any) => {
-        // Usa a Coluna C da planilha Vendas ("Data/Hora formatada") como data de referência para todos os funis
-        // E converte do timezone UTC para UTC-3
-        const rawColC = 
-          item["Data/Hora formatada"] || 
-          item["Data / Hora formatada"] || 
-          item["Data_Hora_formatada"] || 
-          item["Data formatada"] || 
-          item["Data/Hora"] || 
-          item["Data/hora formatada"] ||
-          (item && Object.keys(item).length >= 3 ? item[Object.keys(item)[2]] : "") ||
-          item["Data"] ||
-          "";
+        // Sales use column C as the reference date, falling back to column B when C is empty.
+        // Both values are converted from UTC to UTC-3 below.
+        const buyerValues = Object.values(item || {});
+        const rawPurchaseDate = String(buyerValues[2] || buyerValues[1] || "").trim();
 
-        const parsedDate = parseUtcToUtcMinus3(rawColC);
+        const parsedDate = parseUtcToUtcMinus3(rawPurchaseDate);
 
         return {
           "Data": parsedDate.dateStr,
-          "Data_Original": rawColC || item["Data"] || "",
+          "Data_Original": rawPurchaseDate,
           "Data_Hora_Formatada": parsedDate.formattedDisplay,
           "timestamp": parsedDate.timestamp,
           "Valor": parseFloat((item["Valor da Transação"] || item["Valor"] || item["Valor Líquido Estimado"] || '0').replace(',', '.')),

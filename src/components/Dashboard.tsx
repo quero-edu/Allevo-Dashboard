@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Calendar, RotateCcw, LayoutDashboard, Layers, Disc, MousePointer2, Package, 
-  DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, ChevronRight, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, History, Check, X,
-  ShieldCheck, LogOut, UserCheck, Shield, Maximize2, Activity
+  DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, ChevronRight, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X,
+  ShieldCheck, LogOut, UserCheck, Shield, Maximize2
 } from 'lucide-react';
 import { fetchSpreadsheetData } from '../services/api';
 import { cn } from '../lib/utils';
@@ -82,51 +82,6 @@ const METRIC_CONFIG: Record<string, { label: string, color: string, type: 'curre
   roas: { label: 'ROAS', color: '#00FFBB', type: 'number', renderType: 'line' }
 };
 
-function MiniSparkline({ data, color = '#00FFBB' }: { data: number[]; color?: string }) {
-  if (!data || data.length < 2) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const width = 200;
-  const height = 32;
-  
-  const points = data.map((val, idx) => {
-    const x = (idx / (data.length - 1)) * width;
-    const y = height - ((val - min) / range) * (height - 8) - 4;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-
-  const polylinePoints = points.join(' ');
-  const areaPoints = `0,${height} ${polylinePoints} ${width},${height}`;
-
-  // Unique ID generator for SVG gradient fill
-  const gradId = `spark-${Math.abs(data.reduce((a, b) => a + b, 0)).toFixed(0)}-${color.replace('#', '')}`;
-
-  return (
-    <div className="w-full mt-3 pt-2 border-t border-[#262626] pointer-events-none">
-      <div className="w-full h-8 relative overflow-hidden">
-        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-          <polygon points={areaPoints} fill={`url(#${gradId})`} />
-          <polyline
-            fill="none"
-            stroke={color}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={polylinePoints}
-          />
-        </svg>
-      </div>
-    </div>
-  );
-}
-
 interface MetricCardProps {
   id?: string;
   title: string;
@@ -140,8 +95,6 @@ interface MetricCardProps {
   selected?: boolean;
   isHero?: boolean;
   heroTag?: string;
-  sparklineData?: number[];
-  sparklineColor?: string;
   comparison?: {
     percent: number;
     diff: number;
@@ -151,13 +104,12 @@ interface MetricCardProps {
     prevFormatted?: string;
   } | null;
   comparisonLabel?: string;
-  movingAverageFormatted?: string;
   onClick?: () => void;
 }
 
 function MetricCard({ 
-  id, title, value, subtext, icon, valueColor, className, selected, isHero, heroTag, sparklineData, sparklineColor = '#00FFBB', 
-  comparison, comparisonLabel, movingAverageFormatted, onClick 
+  id, title, value, subtext, icon, valueColor, className, selected, isHero, heroTag,
+  comparison, comparisonLabel, onClick
 }: MetricCardProps) {
   return (
     <div
@@ -257,22 +209,6 @@ function MetricCard({
         </div>
       )}
 
-      {/* MOVING AVERAGE BADGE */}
-      {movingAverageFormatted && (
-        <div className="mt-2 pt-2 border-t border-[#262626] flex items-center justify-between gap-2 text-[11px]">
-          <span className="text-[#38BDF8] flex items-center gap-1 font-mono font-bold text-[10px] tracking-wide">
-            <Activity size={12} className="text-[#38BDF8]" /> MM (7d):
-          </span>
-          <span className="font-mono text-zinc-200 font-bold text-[10px] bg-[#242424] px-2 py-0.5 rounded-[6px] border border-[#262626]">
-            {movingAverageFormatted}
-          </span>
-        </div>
-      )}
-
-      {/* BOTTOM SECTION: SPARKLINE GRAPH */}
-      {sparklineData && sparklineData.length > 1 && (
-        <MiniSparkline data={sparklineData} color={sparklineColor} />
-      )}
     </div>
   );
 }
@@ -1475,35 +1411,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     }, { investimento: 0, impressoes: 0, cliques: 0, compras: 0, faturamento: 0, landingPageViews: 0, initiateCheckout: 0 });
   }, [metricsData.campaigns]);
 
-  const dailySparklines = useMemo(() => {
-    const list = metricsData.dailyMetrics || [];
-    return {
-      investimentoTotal: list.map((d: any) => parseValue(d.investimentoTotal)),
-      faturamentoTotal: list.map((d: any) => parseValue(d.faturamentoTotal)),
-      lucroTotal: list.map((d: any) => parseValue(d.lucroTotal)),
-      ticketMedio: list.map((d: any) => parseValue(d.ticketMedio)),
-      vendasIngressos: list.map((d: any) => parseValue(d.vendasIngressos)),
-      vendasTrafego: list.map((d: any) => parseValue(d.vendasTrafego)),
-      cpaTrafego: list.map((d: any) => parseValue(d.cpaTrafego)),
-      cpaTotal: list.map((d: any) => parseValue(d.cpaTotal)),
-      roas: list.map((d: any) => parseValue(d.roas))
-    };
-  }, [metricsData.dailyMetrics]);
-
   const comparisonLabel = getPreviousPeriodLabel(dateRange, customDates);
   const comp = metricsData.comparison || {};
-
-  const getMMFormatted = (key: string) => {
-    if (!showMovingAverage || !metricsData.dailyMetrics || metricsData.dailyMetrics.length === 0) return undefined;
-    const lastDay = metricsData.dailyMetrics[metricsData.dailyMetrics.length - 1];
-    const mmVal = lastDay?.[`${key}_mm7`];
-    if (mmVal === undefined || mmVal === null) return undefined;
-    if (key === 'roas') return `${mmVal.toFixed(2)}x`;
-    const config = METRIC_CONFIG[key];
-    if (!config) return undefined;
-    if (config.type === 'currency') return formatCurrency(mmVal);
-    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(mmVal);
-  };
 
   const selectedProjectLabel = selectedProject === '1'
     ? 'Livro Estratégia em Ação'
@@ -1663,63 +1572,6 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         </div>
         
         <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full xl:w-auto">
-          {/* Quick Moving Average Toggle Button */}
-          <button
-            onClick={() => setShowMovingAverage(prev => !prev)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2 border rounded-[8px] transition-all text-xs font-mono font-bold focus:outline-none shadow-sm shrink-0",
-              showMovingAverage
-                ? "bg-[#38BDF8]/15 border-[#38BDF8]/60 text-[#38BDF8]"
-                : "bg-[#242424] hover:bg-[#2E2E2E] border-[#262626] text-zinc-400 hover:text-zinc-200"
-            )}
-            title="Exibir Média Móvel de 7 dias"
-          >
-            <Activity size={14} className={showMovingAverage ? "text-[#38BDF8]" : "text-zinc-400"} />
-            <span className="hidden md:inline">Média Móvel</span>
-            <div className={cn(
-              "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ml-0.5",
-              showMovingAverage ? "bg-[#38BDF8] border-[#38BDF8]" : "border-zinc-500 bg-transparent"
-            )}>
-              {showMovingAverage && <Check size={10} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
-            </div>
-          </button>
-
-          {/* Quick Compare Toggle Button */}
-          <button
-            onClick={() => setComparePrevious(prev => !prev)}
-            data-active-green={comparePrevious ? "true" : undefined}
-            data-action-ink={comparePrevious ? "true" : undefined}
-            style={comparePrevious ? ALLEVO_ACTION_STYLE : undefined}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2 border rounded-[8px] transition-all text-xs font-mono font-bold focus:outline-none shadow-sm shrink-0",
-              comparePrevious
-                ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] border-[#00FFBB] !text-[#1A1A1A] font-black"
-                : "bg-[#242424] hover:bg-[#2E2E2E] border-[#262626] text-zinc-400 hover:text-zinc-200"
-            )}
-            title="Comparar com período anterior equivalente"
-          >
-            <History
-              size={14}
-              color={comparePrevious ? ALLEVO_ACTION_INK : undefined}
-              stroke={comparePrevious ? ALLEVO_ACTION_INK : "currentColor"}
-              strokeWidth={comparePrevious ? 2.5 : 2}
-              style={comparePrevious ? ALLEVO_ACTION_ICON_STYLE : undefined}
-              className={comparePrevious ? "!text-[#1A1A1A] stroke-[#1A1A1A]" : "text-zinc-400"}
-            />
-            <span
-              style={comparePrevious ? ALLEVO_ACTION_TEXT_STYLE : undefined}
-              className={cn("hidden md:inline", comparePrevious && "!text-[#1A1A1A] font-black")}
-            >
-              Comparar Período
-            </span>
-            <div className={cn(
-              "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ml-0.5",
-              comparePrevious ? "bg-[#00FFBB] border-[#00FFBB]" : "border-zinc-500 bg-transparent"
-            )}>
-              {comparePrevious && <Check size={10} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
-            </div>
-          </button>
-
           {/* Compact Popover Date Range Selector */}
           <div className="relative shrink-0" ref={dateMenuRef}>
             <button
@@ -2056,13 +1908,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       icon={<DollarSign size={20} />}
                       isHero={true}
                       heroTag="Gasto Ad"
-                      sparklineData={dailySparklines.investimentoTotal}
-                      sparklineColor="#66BEFF"
                       selected={selectedMetrics.includes('investimentoTotal')}
                       onClick={() => toggleMetric('investimentoTotal')}
                       comparison={comp.investimentoTotal}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('investimentoTotal')}
                     />
                     <MetricCard 
                       id="faturamentoTotal"
@@ -2072,13 +1921,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       icon={<TrendingUp size={20} />}
                       isHero={true}
                       heroTag="Receita Bruta"
-                      sparklineData={dailySparklines.faturamentoTotal}
-                      sparklineColor="#00FFBB"
                       selected={selectedMetrics.includes('faturamentoTotal')}
                       onClick={() => toggleMetric('faturamentoTotal')}
                       comparison={comp.faturamentoTotal}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('faturamentoTotal')}
                     />
                     <MetricCard 
                       id="cpaTotal"
@@ -2088,13 +1934,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       icon={<Layers size={20} />}
                       isHero={true}
                       heroTag="Custo / Venda"
-                      sparklineData={dailySparklines.cpaTotal}
-                      sparklineColor="#38BDF8"
                       selected={selectedMetrics.includes('cpaTotal')}
                       onClick={() => toggleMetric('cpaTotal')}
                       comparison={comp.cpaTotal}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('cpaTotal')}
                     />
                     <MetricCard 
                       id="ticketMedio"
@@ -2104,13 +1947,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       icon={<Ticket size={20} />}
                       isHero={true}
                       heroTag="Valor Médio"
-                      sparklineData={dailySparklines.ticketMedio}
-                      sparklineColor="#A855F7"
                       selected={selectedMetrics.includes('ticketMedio')}
                       onClick={() => toggleMetric('ticketMedio')}
                       comparison={comp.ticketMedio}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('ticketMedio')}
                     />
                   </div>
                 </div>
@@ -2129,13 +1969,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       subtext="Faturamento - Investimento"
                       valueColor={geral.lucroTotal >= 0 ? "text-[#00FFBB]" : "text-rose-400"}
                       icon={<Zap size={20} />}
-                      sparklineData={dailySparklines.lucroTotal}
-                      sparklineColor={geral.lucroTotal >= 0 ? "#00FFBB" : "#F43F5E"}
                       selected={selectedMetrics.includes('lucroTotal')}
                       onClick={() => toggleMetric('lucroTotal')}
                       comparison={comp.lucroTotal}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('lucroTotal')}
                     />
                     <MetricCard 
                       id="vendasIngressos"
@@ -2143,13 +1980,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       value={geral.vendasIngressos}
                       subtext="Planilha / Checkout"
                       icon={<ShoppingCart size={20} />}
-                      sparklineData={dailySparklines.vendasIngressos}
-                      sparklineColor="#A855F7"
                       selected={selectedMetrics.includes('vendasIngressos')}
                       onClick={() => toggleMetric('vendasIngressos')}
                       comparison={comp.vendasIngressos}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('vendasIngressos')}
                     />
                     <MetricCard 
                       id="vendasTrafego"
@@ -2157,13 +1991,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       value={geral.vendasTrafego}
                       subtext="Origem Meta Ads"
                       icon={<Target size={20} />}
-                      sparklineData={dailySparklines.vendasTrafego}
-                      sparklineColor="#F59E0B"
                       selected={selectedMetrics.includes('vendasTrafego')}
                       onClick={() => toggleMetric('vendasTrafego')}
                       comparison={comp.vendasTrafego}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('vendasTrafego')}
                     />
                     <MetricCard 
                       id="cpaTrafego"
@@ -2171,13 +2002,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       value={formatCurrency(geral.cpaTrafego)}
                       subtext="Investimento / Vendas Meta"
                       icon={<Disc size={20} />}
-                      sparklineData={dailySparklines.cpaTrafego}
-                      sparklineColor="#F43F5E"
                       selected={selectedMetrics.includes('cpaTrafego')}
                       onClick={() => toggleMetric('cpaTrafego')}
                       comparison={comp.cpaTrafego}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('cpaTrafego')}
                     />
                     <MetricCard 
                       id="roas"
@@ -2185,13 +2013,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       value={`${(geral.roas || 0).toFixed(2)}x`}
                       subtext="Retorno s/ Investimento"
                       icon={<TrendingUp size={20} />}
-                      sparklineData={dailySparklines.roas}
-                      sparklineColor="#00FFBB"
                       selected={selectedMetrics.includes('roas')}
                       onClick={() => toggleMetric('roas')}
                       comparison={comp.roas}
                       comparisonLabel={comparisonLabel}
-                      movingAverageFormatted={getMMFormatted('roas')}
                     />
                   </div>
                 </div>
@@ -2202,6 +2027,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   setSelectedMetrics={setSelectedMetrics}
                   showMovingAverage={showMovingAverage}
                   setShowMovingAverage={setShowMovingAverage}
+                  comparePrevious={comparePrevious}
+                  setComparePrevious={setComparePrevious}
                   METRIC_CONFIG={METRIC_CONFIG}
                   formatCurrency={formatCurrency}
                   formatNumber={formatNumber}

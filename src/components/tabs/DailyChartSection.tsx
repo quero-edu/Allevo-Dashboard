@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Check } from 'lucide-react';
+import { Activity, Check, History } from 'lucide-react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -19,6 +19,8 @@ interface DailyChartSectionProps {
   setSelectedMetrics: React.Dispatch<React.SetStateAction<string[]>>;
   showMovingAverage: boolean;
   setShowMovingAverage: React.Dispatch<React.SetStateAction<boolean>>;
+  comparePrevious: boolean;
+  setComparePrevious: React.Dispatch<React.SetStateAction<boolean>>;
   METRIC_CONFIG: Record<string, any>;
   formatCurrency: (val: number) => string;
   formatNumber: (val: number) => string;
@@ -30,21 +32,52 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   setSelectedMetrics,
   showMovingAverage,
   setShowMovingAverage,
+  comparePrevious,
+  setComparePrevious,
   METRIC_CONFIG,
   formatCurrency,
   formatNumber
 }) => {
   return (
     <div className="bg-[#151922]/95 rounded-[8px] border border-white/10 p-5 sm:p-6 shadow-[0_18px_52px_rgba(0,0,0,0.22)]">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-        <h3 className="text-base font-bold text-white px-3 py-1 bg-white/[0.04] border border-white/10 rounded-[8px] inline-block font-mono">
-          Histórico Diário
-        </h3>
-        <div className="flex items-center gap-2.5">
+      <div className="flex flex-col gap-4 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-white font-mono">Histórico diário</h3>
+            <p className="mt-1 text-xs text-zinc-400 font-medium">Selecione até duas métricas acima para comparar.</p>
+          </div>
+          <button
+            onClick={() => setSelectedMetrics([])}
+            className="self-start sm:self-auto text-xs font-mono font-bold px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.04] rounded-[8px] transition-colors border border-white/10 cursor-pointer"
+          >
+            Limpar seleção
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500 mr-1">Análise</span>
+          <button
+            type="button"
+            onClick={() => setComparePrevious(prev => !prev)}
+            aria-pressed={comparePrevious}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 border rounded-[8px] text-xs font-mono font-bold transition-colors",
+              comparePrevious
+                ? "bg-[#00FFBB]/12 border-[#00FFBB]/50 text-[#00FFBB]"
+                : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+            )}
+          >
+            <History size={14} /> Comparar período
+          </button>
           <button
             type="button"
             onClick={() => setShowMovingAverage(prev => !prev)}
-            className="flex items-center gap-2 cursor-pointer select-none text-xs font-mono font-bold text-zinc-300 hover:text-white transition-colors bg-white/[0.04] px-3 py-1.5 rounded-[8px] border border-white/10 hover:border-[#38BDF8]/50"
+            aria-pressed={showMovingAverage}
+            className={cn(
+              "flex items-center gap-2 cursor-pointer select-none text-xs font-mono font-bold px-3 py-2 rounded-[8px] border transition-colors",
+              showMovingAverage
+                ? "bg-[#38BDF8]/12 border-[#38BDF8]/50 text-[#A8D9FF]"
+                : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+            )}
           >
             <div className={cn(
               "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-all shrink-0",
@@ -58,17 +91,8 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
               <Activity size={13} className="text-[#38BDF8]" /> Média Móvel (7D)
             </span>
           </button>
-          <button 
-            onClick={() => setSelectedMetrics([])}
-            className="text-xs font-mono font-bold px-3 py-1.5 text-zinc-400 hover:text-[#00FFBB] hover:bg-white/[0.04] rounded-[8px] transition-colors border border-white/10 cursor-pointer"
-          >
-            Limpar seleção
-          </button>
         </div>
       </div>
-      <p className="text-xs text-zinc-400 mb-6 font-medium">
-        Métricas agregadas por dia baseado nos cards selecionados {showMovingAverage && '• Linhas pontilhadas indicam Média Móvel (7 dias)'}
-      </p>
 
       <div className="h-[380px] w-full">
         <ResponsiveContainer width="100%" height="100%">

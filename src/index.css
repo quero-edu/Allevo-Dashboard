@@ -101,6 +101,18 @@
   background: var(--allevo-text-on-action) !important;
 }
 
+html body [data-action-ink="true"],
+html body [data-action-ink="true"] *,
+html body [data-action-ink="true"] svg,
+html body [data-action-ink="true"] svg *,
+html body .dashboard-shell [data-action-ink="true"],
+html body .dashboard-shell [data-action-ink="true"] * {
+  color: #1A1A1A !important;
+  -webkit-text-fill-color: #1A1A1A !important;
+  stroke: #1A1A1A !important;
+  text-shadow: none !important;
+}
+
 /* Custom scrollbars matching the dark surface palette */
 ::-webkit-scrollbar {
   width: 6px;

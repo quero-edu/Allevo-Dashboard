@@ -175,6 +175,7 @@ function MetricCard({
       {isHero && (
         <div 
           data-active-green="true"
+          data-action-ink="true"
           style={ALLEVO_ACTION_STYLE}
           className="allevo-action badge-primary-green absolute top-0 right-0 px-2.5 py-0.5 bg-[#00FFBB] !text-[#1A1A1A] text-[9px] font-mono font-black uppercase tracking-widest rounded-bl-[8px] shadow-sm flex items-center gap-1 z-10"
         >
@@ -188,6 +189,7 @@ function MetricCard({
         <div className="flex items-center gap-2.5">
           <div 
             data-active-green={selected ? "true" : undefined}
+            data-action-ink={selected ? "true" : undefined}
             style={selected ? ALLEVO_ACTION_STYLE : undefined}
             className={cn("p-2 rounded-[8px] transition-colors border flex items-center justify-center", selected ? "allevo-action bg-[#00FFBB] !text-[#1A1A1A] border-[#00FFBB] font-black" : "bg-[#00FFBB]/10 text-[#00FFBB] border-[#00FFBB]/20")}
           >
@@ -1601,6 +1603,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <button
               onClick={() => handleSelectProject('1')}
               data-active-green={selectedProject === '1' ? "true" : undefined}
+              data-action-ink={selectedProject === '1' ? "true" : undefined}
               style={selectedProject === '1' ? ALLEVO_ACTION_STYLE : undefined}
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
@@ -1615,6 +1618,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <button
               onClick={() => handleSelectProject('2')}
               data-active-green={selectedProject === '2' ? "true" : undefined}
+              data-action-ink={selectedProject === '2' ? "true" : undefined}
               style={selectedProject === '2' ? ALLEVO_ACTION_STYLE : undefined}
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
@@ -1629,6 +1633,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <button
               onClick={() => handleSelectProject('all')}
               data-active-green={selectedProject === 'all' ? "true" : undefined}
+              data-action-ink={selectedProject === 'all' ? "true" : undefined}
               style={selectedProject === 'all' ? ALLEVO_ACTION_STYLE : undefined}
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
@@ -1669,6 +1674,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           <button
             onClick={() => setComparePrevious(prev => !prev)}
             data-active-green={comparePrevious ? "true" : undefined}
+            data-action-ink={comparePrevious ? "true" : undefined}
             style={comparePrevious ? ALLEVO_ACTION_STYLE : undefined}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 border rounded-[8px] transition-all text-xs font-mono font-bold focus:outline-none shadow-sm shrink-0",
@@ -1737,6 +1743,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                     return (
                       <button 
                         key={opt}
+                        data-action-ink={isSelected ? "true" : undefined}
                         onClick={() => {
                           setDateRange(opt);
                           setCustomDates({ start: '', end: '' });
@@ -1875,6 +1882,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <button 
               onClick={() => loadData(selectedProject)}
               disabled={loading}
+              data-action-ink="true"
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
               style={ALLEVO_ACTION_STYLE}
               className="allevo-action btn-primary-green px-3.5 py-2 bg-[#00FFBB] !text-[#1A1A1A] rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center gap-1.5 font-mono font-black text-xs whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
@@ -1888,42 +1896,21 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
       <main className="max-w-[1440px] mx-auto p-4 sm:p-6 lg:p-8">
         <section className="executive-panel rounded-[8px] p-5 sm:p-6 lg:p-7 mb-6">
-          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
-            <div className="max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2 mb-4">
-                <span className="px-2.5 py-1 rounded-[6px] bg-[#00FFBB]/12 border border-[#00FFBB]/20 text-[#00FFBB] text-[10px] font-mono font-black uppercase tracking-widest">
-                  Tráfego Pago
-                </span>
-                <span className="px-2.5 py-1 rounded-[6px] bg-[#66BEFF]/10 border border-[#66BEFF]/20 text-[#A8D9FF] text-[10px] font-mono font-bold uppercase tracking-widest">
-                  {getLabelForDateRange(dateRange, customDates)}
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-normal text-white">
-                Dashboard de performance
-              </h1>
-              <p className="mt-2 text-sm sm:text-base text-slate-300 leading-relaxed">
-                {selectedProjectLabel}
-              </p>
+          <div className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="px-2.5 py-1 rounded-[6px] bg-[#00FFBB]/12 border border-[#00FFBB]/20 text-[#00FFBB] text-[10px] font-mono font-black uppercase tracking-widest">
+                Tráfego Pago
+              </span>
+              <span className="px-2.5 py-1 rounded-[6px] bg-[#66BEFF]/10 border border-[#66BEFF]/20 text-[#A8D9FF] text-[10px] font-mono font-bold uppercase tracking-widest">
+                {getLabelForDateRange(dateRange, customDates)}
+              </span>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-2 gap-3 min-w-0 xl:min-w-[420px]">
-              <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
-                <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Receita</span>
-                <strong className="mt-1 block text-lg font-mono text-white">{formatCurrency(geral.faturamentoTotal || 0)}</strong>
-              </div>
-              <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
-                <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Investimento</span>
-                <strong className="mt-1 block text-lg font-mono text-white">{formatCurrency(geral.investimentoTotal || 0)}</strong>
-              </div>
-              <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
-                <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Vendas</span>
-                <strong className="mt-1 block text-lg font-mono text-white">{formatNumber(geral.vendasIngressos || 0)}</strong>
-              </div>
-              <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
-                <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">ROAS</span>
-                <strong className="mt-1 block text-lg font-mono text-[#00FFBB]">{(geral.roas || 0).toFixed(2)}x</strong>
-              </div>
-            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-normal text-white">
+              Dashboard de performance
+            </h1>
+            <p className="mt-2 text-sm sm:text-base text-slate-300 leading-relaxed">
+              {selectedProjectLabel}
+            </p>
           </div>
         </section>
         {fetchError && (
@@ -1964,6 +1951,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <button
               onClick={() => loadData(selectedProject)}
               disabled={loading}
+              data-action-ink="true"
               style={ALLEVO_ACTION_STYLE}
               className="allevo-action btn-primary-green px-5 py-3 bg-[#00FFBB] !text-[#1A1A1A] font-mono font-black rounded-[8px] text-sm shadow-md transition-colors shrink-0 flex items-center gap-2 self-stretch md:self-auto justify-center cursor-pointer"
             >
@@ -2006,6 +1994,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         key={tab.name}
                         data-active-tab={isActive ? "true" : undefined}
                         data-active-green={isActive ? "true" : undefined}
+                        data-action-ink={isActive ? "true" : undefined}
                         onClick={() => {
                           setActiveTab(tab.name);
                           setIsTabMenuOpen(false);
@@ -2047,6 +2036,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                     key={tab.name}
                     data-active-tab={isActive ? "true" : undefined}
                     data-active-green={isActive ? "true" : undefined}
+                    data-action-ink={isActive ? "true" : undefined}
                     onClick={() => setActiveTab(tab.name)}
                     style={isActive ? ALLEVO_ACTION_STYLE : undefined}
                     className={cn(

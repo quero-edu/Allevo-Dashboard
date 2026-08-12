@@ -38,36 +38,40 @@
   }
 }
 
-/* Enforce black text and strokes only on intentionally solid green controls. */
-.btn-primary-green,
-.badge-primary-green,
-[data-active-tab="true"],
-[data-active-green="true"],
-.green-solid {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
-  font-weight: 800 !important;
+/* IA do Jeito Certo / Allevo tokens from the supplied design system. */
+:root {
+  --allevo-surface-dark: #1A1A1A;
+  --allevo-surface-dark-elevated: #252525;
+  --allevo-text-on-action: #1A1A1A;
+  --allevo-action-start: #00D99F;
+  --allevo-action-end: #00FFBB;
 }
 
+.allevo-action,
+.allevo-action:hover,
+.allevo-action:active,
 .btn-primary-green,
-.badge-primary-green,
-.green-solid {
-  background-color: #00FFBB !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
-  font-weight: 800 !important;
-}
-
 .btn-primary-green:hover,
-.green-solid:hover {
-  background-color: #00E5A7 !important;
-}
-
 .btn-primary-green:active,
-.green-solid:active {
-  background-color: #00B383 !important;
+.badge-primary-green,
+.green-solid,
+.green-solid:hover,
+.green-solid:active,
+[data-active-tab="true"],
+[data-active-green="true"] {
+  background: linear-gradient(135deg, var(--allevo-action-start), var(--allevo-action-end)) !important;
+  border-color: var(--allevo-action-end) !important;
+  color: var(--allevo-text-on-action) !important;
+  -webkit-text-fill-color: var(--allevo-text-on-action) !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
 }
 
+.allevo-action,
+.allevo-action *,
+.allevo-action svg,
+.allevo-action svg *,
+.btn-primary-green,
 .btn-primary-green *,
 .btn-primary-green svg,
 .btn-primary-green svg *,
@@ -75,6 +79,10 @@
 .badge-primary-green *,
 .badge-primary-green svg,
 .badge-primary-green svg *,
+.green-solid,
+.green-solid *,
+.green-solid svg,
+.green-solid svg *,
 [data-active-tab="true"],
 [data-active-tab="true"] *,
 [data-active-tab="true"] svg,
@@ -82,47 +90,15 @@
 [data-active-green="true"],
 [data-active-green="true"] *,
 [data-active-green="true"] svg,
-[data-active-green="true"] svg *,
-.green-solid,
-.green-solid *,
-.green-solid svg,
-.green-solid svg * {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
-  stroke: #000000 !important;
-}
-
-.badge-primary-green {
-  background-color: #00FFBB !important;
-  color: #000000 !important;
-  font-weight: 800 !important;
-}
-
-html body .btn-primary-green,
-html body .btn-primary-green *,
-html body .badge-primary-green,
-html body .badge-primary-green *,
-html body [data-active-tab="true"],
-html body [data-active-tab="true"] *,
-html body [data-active-green="true"],
-html body [data-active-green="true"] *,
-html body .green-solid,
-html body .green-solid * {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
+[data-active-green="true"] svg * {
+  color: var(--allevo-text-on-action) !important;
+  -webkit-text-fill-color: var(--allevo-text-on-action) !important;
+  stroke: var(--allevo-text-on-action) !important;
   text-shadow: none !important;
 }
 
-html body .btn-primary-green svg,
-html body .btn-primary-green svg *,
-html body .badge-primary-green svg,
-html body .badge-primary-green svg *,
-html body [data-active-tab="true"] svg,
-html body [data-active-tab="true"] svg *,
-html body [data-active-green="true"] svg,
-html body [data-active-green="true"] svg * {
-  color: #000000 !important;
-  stroke: #000000 !important;
+.allevo-action-dot {
+  background: var(--allevo-text-on-action) !important;
 }
 
 /* Custom scrollbars matching the dark surface palette */

@@ -16,6 +16,22 @@ import { CriativosTab } from './tabs/CriativosTab';
 import { FontesTab } from './tabs/FontesTab';
 import { LightboxModal } from './tabs/LightboxModal';
 
+const ALLEVO_ACTION_INK = '#1A1A1A';
+const ALLEVO_ACTION_STYLE: React.CSSProperties = {
+  background: 'linear-gradient(135deg, #00D99F, #00FFBB)',
+  borderColor: '#00FFBB',
+  color: ALLEVO_ACTION_INK,
+  WebkitTextFillColor: ALLEVO_ACTION_INK
+};
+const ALLEVO_ACTION_TEXT_STYLE: React.CSSProperties = {
+  color: ALLEVO_ACTION_INK,
+  WebkitTextFillColor: ALLEVO_ACTION_INK
+};
+const ALLEVO_ACTION_ICON_STYLE: React.CSSProperties = {
+  color: ALLEVO_ACTION_INK,
+  stroke: ALLEVO_ACTION_INK
+};
+
 function getCreativeThumbnail(creativeName: string, customImage?: string) {
   if (customImage && typeof customImage === 'string' && customImage.trim() !== '') {
     let trimmed = customImage.trim();
@@ -159,11 +175,11 @@ function MetricCard({
       {isHero && (
         <div 
           data-active-green="true"
-          style={{ backgroundColor: '#00FFBB', color: '#000000', borderColor: '#00FFBB' }}
-          className="badge-primary-green absolute top-0 right-0 px-2.5 py-0.5 bg-[#00FFBB] text-black text-[9px] font-mono font-black uppercase tracking-widest rounded-bl-[8px] shadow-sm flex items-center gap-1 z-10"
+          style={ALLEVO_ACTION_STYLE}
+          className="allevo-action badge-primary-green absolute top-0 right-0 px-2.5 py-0.5 bg-[#00FFBB] !text-[#1A1A1A] text-[9px] font-mono font-black uppercase tracking-widest rounded-bl-[8px] shadow-sm flex items-center gap-1 z-10"
         >
-          <Zap size={10} color="#000000" fill="#000000" stroke="#000000" strokeWidth={2.5} style={{ color: '#000000', stroke: '#000000', fill: '#000000' }} className="shrink-0 text-black stroke-black" />
-          <span style={{ color: '#000000', fontWeight: 900 }} className="text-black font-black">{heroTag || "Destaque"}</span>
+          <Zap size={10} color={ALLEVO_ACTION_INK} fill={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={{ ...ALLEVO_ACTION_ICON_STYLE, fill: ALLEVO_ACTION_INK }} className="shrink-0 !text-[#1A1A1A] stroke-[#1A1A1A]" />
+          <span style={{ ...ALLEVO_ACTION_TEXT_STYLE, fontWeight: 900 }} className="!text-[#1A1A1A] font-black">{heroTag || "Destaque"}</span>
         </div>
       )}
 
@@ -172,15 +188,15 @@ function MetricCard({
         <div className="flex items-center gap-2.5">
           <div 
             data-active-green={selected ? "true" : undefined}
-            style={selected ? { backgroundColor: '#00FFBB', color: '#000000', borderColor: '#00FFBB' } : undefined}
-            className={cn("p-2 rounded-[8px] transition-colors border flex items-center justify-center", selected ? "bg-[#00FFBB] text-black border-[#00FFBB] font-black" : "bg-[#00FFBB]/10 text-[#00FFBB] border-[#00FFBB]/20")}
+            style={selected ? ALLEVO_ACTION_STYLE : undefined}
+            className={cn("p-2 rounded-[8px] transition-colors border flex items-center justify-center", selected ? "allevo-action bg-[#00FFBB] !text-[#1A1A1A] border-[#00FFBB] font-black" : "bg-[#00FFBB]/10 text-[#00FFBB] border-[#00FFBB]/20")}
           >
             {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, {
-              color: selected ? '#000000' : '#00FFBB',
-              stroke: selected ? '#000000' : '#00FFBB',
+              color: selected ? ALLEVO_ACTION_INK : '#00FFBB',
+              stroke: selected ? ALLEVO_ACTION_INK : '#00FFBB',
               strokeWidth: selected ? 2.5 : 2,
-              style: { color: selected ? '#000000' : '#00FFBB', stroke: selected ? '#000000' : '#00FFBB' },
-              className: selected ? 'text-black stroke-black' : 'text-[#00FFBB]'
+              style: selected ? ALLEVO_ACTION_ICON_STYLE : { color: '#00FFBB', stroke: '#00FFBB' },
+              className: selected ? '!text-[#1A1A1A] stroke-[#1A1A1A]' : 'text-[#00FFBB]'
             }) : icon}
           </div>
           <span className={cn("font-mono text-xs font-bold uppercase tracking-wider", isHero ? "text-zinc-200" : "text-zinc-400")}>{title}</span>
@@ -1585,44 +1601,44 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <button
               onClick={() => handleSelectProject('1')}
               data-active-green={selectedProject === '1' ? "true" : undefined}
-              style={selectedProject === '1' ? { backgroundColor: '#00FFBB', color: '#000000' } : undefined}
+              style={selectedProject === '1' ? ALLEVO_ACTION_STYLE : undefined}
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
                 selectedProject === '1'
-                  ? "btn-primary-green green-solid bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
+                  ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
               )}
             >
-              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === '1' ? "bg-black" : "bg-[#00FFBB]")}></span>
-              <span style={selectedProject === '1' ? { color: '#000000' } : undefined} className={selectedProject === '1' ? "text-black font-black" : ""}>Livro Estratégia em Ação</span>
+              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === '1' ? "allevo-action-dot bg-[#1A1A1A]" : "bg-[#00FFBB]")}></span>
+              <span style={selectedProject === '1' ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={selectedProject === '1' ? "!text-[#1A1A1A] font-black" : ""}>Livro Estratégia em Ação</span>
             </button>
             <button
               onClick={() => handleSelectProject('2')}
               data-active-green={selectedProject === '2' ? "true" : undefined}
-              style={selectedProject === '2' ? { backgroundColor: '#00FFBB', color: '#000000' } : undefined}
+              style={selectedProject === '2' ? ALLEVO_ACTION_STYLE : undefined}
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
                 selectedProject === '2'
-                  ? "btn-primary-green green-solid bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
+                  ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
               )}
             >
-              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === '2' ? "bg-black" : "bg-[#66BEFF]")}></span>
-              <span style={selectedProject === '2' ? { color: '#000000' } : undefined} className={selectedProject === '2' ? "text-black font-black" : ""}>Livro Gestão de Projetos com IA</span>
+              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === '2' ? "allevo-action-dot bg-[#1A1A1A]" : "bg-[#66BEFF]")}></span>
+              <span style={selectedProject === '2' ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={selectedProject === '2' ? "!text-[#1A1A1A] font-black" : ""}>Livro Gestão de Projetos com IA</span>
             </button>
             <button
               onClick={() => handleSelectProject('all')}
               data-active-green={selectedProject === 'all' ? "true" : undefined}
-              style={selectedProject === 'all' ? { backgroundColor: '#00FFBB', color: '#000000' } : undefined}
+              style={selectedProject === 'all' ? ALLEVO_ACTION_STYLE : undefined}
               className={cn(
                 "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
                 selectedProject === 'all'
-                  ? "btn-primary-green green-solid bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black"
+                  ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
               )}
             >
-              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === 'all' ? "bg-black" : "bg-[#F59E0B]")}></span>
-              <span style={selectedProject === 'all' ? { color: '#000000' } : undefined} className={selectedProject === 'all' ? "text-black font-black" : ""}>Consolidado (Ambos os Funis)</span>
+              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === 'all' ? "allevo-action-dot bg-[#1A1A1A]" : "bg-[#F59E0B]")}></span>
+              <span style={selectedProject === 'all' ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={selectedProject === 'all' ? "!text-[#1A1A1A] font-black" : ""}>Consolidado (Ambos os Funis)</span>
             </button>
           </div>
         </div>
@@ -1645,7 +1661,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ml-0.5",
               showMovingAverage ? "bg-[#38BDF8] border-[#38BDF8]" : "border-zinc-500 bg-transparent"
             )}>
-              {showMovingAverage && <Check size={10} className="text-black stroke-black stroke-[3]" />}
+              {showMovingAverage && <Check size={10} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
             </div>
           </button>
 
@@ -1653,25 +1669,26 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           <button
             onClick={() => setComparePrevious(prev => !prev)}
             data-active-green={comparePrevious ? "true" : undefined}
-            style={comparePrevious ? { backgroundColor: '#00FFBB', color: '#000000', borderColor: '#00FFBB' } : undefined}
+            style={comparePrevious ? ALLEVO_ACTION_STYLE : undefined}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 border rounded-[8px] transition-all text-xs font-mono font-bold focus:outline-none shadow-sm shrink-0",
               comparePrevious
-                ? "btn-primary-green green-solid bg-[#00FFBB] border-[#00FFBB] text-black font-black"
+                ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] border-[#00FFBB] !text-[#1A1A1A] font-black"
                 : "bg-[#242424] hover:bg-[#2E2E2E] border-[#262626] text-zinc-400 hover:text-zinc-200"
             )}
             title="Comparar com período anterior equivalente"
           >
             <History
               size={14}
-              color={comparePrevious ? "#000000" : undefined}
-              stroke={comparePrevious ? "#000000" : "currentColor"}
+              color={comparePrevious ? ALLEVO_ACTION_INK : undefined}
+              stroke={comparePrevious ? ALLEVO_ACTION_INK : "currentColor"}
               strokeWidth={comparePrevious ? 2.5 : 2}
-              className={comparePrevious ? "text-black stroke-black" : "text-zinc-400"}
+              style={comparePrevious ? ALLEVO_ACTION_ICON_STYLE : undefined}
+              className={comparePrevious ? "!text-[#1A1A1A] stroke-[#1A1A1A]" : "text-zinc-400"}
             />
             <span
-              style={comparePrevious ? { color: '#000000' } : undefined}
-              className={cn("hidden sm:inline", comparePrevious && "text-black font-black")}
+              style={comparePrevious ? ALLEVO_ACTION_TEXT_STYLE : undefined}
+              className={cn("hidden sm:inline", comparePrevious && "!text-[#1A1A1A] font-black")}
             >
               Comparar Período
             </span>
@@ -1679,7 +1696,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-colors ml-0.5",
               comparePrevious ? "bg-[#00FFBB] border-[#00FFBB]" : "border-zinc-500 bg-transparent"
             )}>
-              {comparePrevious && <Check size={10} className="text-black stroke-black stroke-[3]" />}
+              {comparePrevious && <Check size={10} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
             </div>
           </button>
 
@@ -1725,16 +1742,16 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                           setCustomDates({ start: '', end: '' });
                           setIsDateMenuOpen(false);
                         }}
-                        style={isSelected ? { backgroundColor: '#00FFBB', color: '#000000' } : undefined}
+                        style={isSelected ? ALLEVO_ACTION_STYLE : undefined}
                         className={cn(
                           "px-3 py-2 text-xs font-mono font-bold rounded-[8px] transition-all text-left flex items-center justify-between",
                           isSelected 
-                            ? "btn-primary-green bg-[#00FFBB] text-black shadow-sm shadow-[#00FFBB]/20 font-black" 
+                            ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
                             : "bg-[#242424] text-zinc-300 hover:text-white hover:bg-[#2E2E2E] border border-[#262626]"
                         )}
                       >
-                        <span style={isSelected ? { color: '#000000' } : undefined} className={isSelected ? "text-black font-black" : ""}>{getLabelForDateRange(opt, { start: '', end: '' })}</span>
-                        {isSelected && <Check size={14} color="#000000" stroke="#000000" strokeWidth={3} className="text-black stroke-black shrink-0" />}
+                        <span style={isSelected ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={isSelected ? "!text-[#1A1A1A] font-black" : ""}>{getLabelForDateRange(opt, { start: '', end: '' })}</span>
+                        {isSelected && <Check size={14} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={3} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] shrink-0" />}
                       </button>
                     );
                   })}
@@ -1807,7 +1824,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         ? "bg-[#00FFBB] border-[#00FFBB] shadow-sm shadow-[#00FFBB]/30" 
                         : "bg-[#242424] border-[#262626] group-hover:border-zinc-400"
                     )}>
-                      {comparePrevious && <Check size={12} className="text-black stroke-black stroke-[3]" />}
+                      {comparePrevious && <Check size={12} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
                     </div>
                     <span className="text-xs font-mono font-bold text-zinc-200 group-hover:text-white transition-colors">
                       Comparar c/ período anterior
@@ -1832,7 +1849,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         ? "bg-[#38BDF8] border-[#38BDF8] shadow-sm shadow-[#38BDF8]/30" 
                         : "bg-[#242424] border-[#262626] group-hover:border-zinc-400"
                     )}>
-                      {showMovingAverage && <Check size={12} className="text-black stroke-black stroke-[3]" />}
+                      {showMovingAverage && <Check size={12} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] stroke-[3]" />}
                     </div>
                     <span className="text-xs font-mono font-bold text-zinc-200 group-hover:text-white transition-colors flex items-center gap-1.5">
                       <Activity size={13} className="text-[#38BDF8]" /> Média Móvel (7d)
@@ -1859,11 +1876,11 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               onClick={() => loadData(selectedProject)}
               disabled={loading}
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
-              style={{ backgroundColor: '#00FFBB', color: '#000000' }}
-              className="btn-primary-green px-3.5 py-2 bg-[#00FFBB] hover:bg-[#00E5A7] active:bg-[#00B383] text-black rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center gap-1.5 font-mono font-black text-xs whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
+              style={ALLEVO_ACTION_STYLE}
+              className="allevo-action btn-primary-green px-3.5 py-2 bg-[#00FFBB] !text-[#1A1A1A] rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center gap-1.5 font-mono font-black text-xs whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
             >
-              <RotateCcw size={14} color="#000000" stroke="#000000" strokeWidth={2.5} className={cn("text-black stroke-black shrink-0", loading && "animate-spin")} />
-              <span style={{ color: '#000000' }} className="text-black font-black">Sync</span>
+              <RotateCcw size={14} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A] shrink-0", loading && "animate-spin")} />
+              <span style={ALLEVO_ACTION_TEXT_STYLE} className="!text-[#1A1A1A] font-black">Sync</span>
             </button>
           </div>
         </div>
@@ -1947,10 +1964,11 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <button
               onClick={() => loadData(selectedProject)}
               disabled={loading}
-              className="btn-primary-green px-5 py-3 bg-[#00FFBB] hover:bg-[#00E5A7] text-black !text-black font-mono font-black rounded-[8px] text-sm shadow-md transition-colors shrink-0 flex items-center gap-2 self-stretch md:self-auto justify-center cursor-pointer"
+              style={ALLEVO_ACTION_STYLE}
+              className="allevo-action btn-primary-green px-5 py-3 bg-[#00FFBB] !text-[#1A1A1A] font-mono font-black rounded-[8px] text-sm shadow-md transition-colors shrink-0 flex items-center gap-2 self-stretch md:self-auto justify-center cursor-pointer"
             >
-              <RotateCcw size={16} className={cn("text-black stroke-black shrink-0", loading && "animate-spin")} />
-              <span className="text-black !text-black font-black">Tentar Novamente</span>
+              <RotateCcw size={16} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A] shrink-0", loading && "animate-spin")} />
+              <span style={ALLEVO_ACTION_TEXT_STYLE} className="!text-[#1A1A1A] font-black">Tentar Novamente</span>
             </button>
           </div>
         )}
@@ -1992,26 +2010,26 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                           setActiveTab(tab.name);
                           setIsTabMenuOpen(false);
                         }}
-                        style={isActive ? { backgroundColor: '#00FFBB', color: '#000000', borderColor: '#00FFBB' } : undefined}
+                        style={isActive ? ALLEVO_ACTION_STYLE : undefined}
                         className={cn(
                           "w-full flex items-center justify-between px-3.5 py-3 rounded-[8px] font-mono font-bold text-xs transition-all text-left",
                           isActive
-                            ? "btn-primary-green bg-[#00FFBB] text-black shadow-md shadow-[#00FFBB]/20 font-black"
+                            ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] shadow-md shadow-[#00FFBB]/20 font-black"
                             : "text-zinc-300 hover:bg-[#242424] hover:text-white"
                         )}
                       >
                         <div className="flex items-center gap-2.5">
                           <TabIcon 
                             size={18} 
-                            color={isActive ? "#000000" : undefined}
-                            stroke={isActive ? "#000000" : "currentColor"}
+                            color={isActive ? ALLEVO_ACTION_INK : undefined}
+                            stroke={isActive ? ALLEVO_ACTION_INK : "currentColor"}
                             strokeWidth={isActive ? 2.5 : 2}
-                            style={isActive ? { color: '#000000', stroke: '#000000' } : undefined}
-                            className={cn("shrink-0", isActive ? "text-black stroke-black" : "")}
+                            style={isActive ? ALLEVO_ACTION_ICON_STYLE : undefined}
+                            className={cn("shrink-0", isActive ? "!text-[#1A1A1A] stroke-[#1A1A1A]" : "")}
                           />
-                          <span style={isActive ? { color: '#000000' } : undefined} className={isActive ? "text-black font-black" : ""}>{tab.name}</span>
+                          <span style={isActive ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={isActive ? "!text-[#1A1A1A] font-black" : ""}>{tab.name}</span>
                         </div>
-                        {isActive && <Check size={16} color="#000000" stroke="#000000" strokeWidth={3} className="text-black stroke-black" />}
+                        {isActive && <Check size={16} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={3} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A]" />}
                       </button>
                     );
                   })}
@@ -2030,23 +2048,23 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                     data-active-tab={isActive ? "true" : undefined}
                     data-active-green={isActive ? "true" : undefined}
                     onClick={() => setActiveTab(tab.name)}
-                    style={isActive ? { backgroundColor: '#00FFBB', color: '#000000', borderColor: '#00FFBB' } : undefined}
+                    style={isActive ? ALLEVO_ACTION_STYLE : undefined}
                     className={cn(
                       "flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-xs font-mono font-bold transition-all cursor-pointer",
                       isActive 
-                        ? "btn-primary-green bg-[#00FFBB] text-black shadow-md shadow-[#00FFBB]/20 font-black" 
+                        ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] shadow-md shadow-[#00FFBB]/20 font-black"
                         : "text-zinc-400 hover:bg-[#242424] hover:text-zinc-100"
                     )}
                   >
                     <TabIcon 
                       size={18} 
-                      color={isActive ? "#000000" : undefined}
-                      stroke={isActive ? "#000000" : "currentColor"}
+                      color={isActive ? ALLEVO_ACTION_INK : undefined}
+                      stroke={isActive ? ALLEVO_ACTION_INK : "currentColor"}
                       strokeWidth={isActive ? 2.5 : 2}
-                      style={isActive ? { color: '#000000', stroke: '#000000' } : undefined}
-                      className={cn("shrink-0", isActive ? "text-black stroke-black" : "")}
+                      style={isActive ? ALLEVO_ACTION_ICON_STYLE : undefined}
+                      className={cn("shrink-0", isActive ? "!text-[#1A1A1A] stroke-[#1A1A1A]" : "")}
                     />
-                    <span style={isActive ? { color: '#000000' } : undefined} className={isActive ? "text-black font-black" : ""}>{tab.name}</span>
+                    <span style={isActive ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={isActive ? "!text-[#1A1A1A] font-black" : ""}>{tab.name}</span>
                   </button>
                 );
               })}

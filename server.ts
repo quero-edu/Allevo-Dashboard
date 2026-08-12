@@ -532,10 +532,10 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
 }
 
       const formatBuyers = (item: any) => {
-        // Sales use column C as the reference date, falling back to column B when C is empty.
+        // Column B carries the source purchase timestamp. Use C only when B is empty.
         // Both values are converted from UTC to UTC-3 below.
         const buyerValues = Object.values(item || {});
-        const rawPurchaseDate = String(buyerValues[2] || buyerValues[1] || "").trim();
+        const rawPurchaseDate = String(buyerValues[1] || buyerValues[2] || "").trim();
 
         const parsedDate = parseUtcToUtcMinus3(rawPurchaseDate);
 

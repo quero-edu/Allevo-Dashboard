@@ -13,3 +13,9 @@ temp_sheet*.xlsx
 test*.js
 test*.cjs
 fix-*.cjs
+.agents/
+.codex/
+.impeccable/
+Dashboard-Prompt-Blueprint.md
+dashboard-architecture.md
+bun.lock

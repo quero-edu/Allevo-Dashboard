@@ -39,31 +39,91 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   formatNumber
 }) => {
   const hasCurrencyMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type === 'currency');
-  const hasNumberMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type === 'number');
+  const hasQuantityMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type !== 'currency');
+  // Each funnel owns a color family; Order Bumps use the darker/accent end of it.
+  const strategyPalette = ['#00E5A8', '#14B8A6', '#34D399', '#2DD4BF'];
+  const strategyOrderBumpPalette = ['#A3E635', '#65A30D', '#4D7C0F'];
+  const managementPalette = ['#60A5FA', '#6366F1', '#818CF8', '#A78BFA'];
+  const managementOrderBumpPalette = ['#E879F9', '#C026D3', '#A21CAF'];
+  const productTotals: Record<string, number> = dailyMetrics.reduce((totals: Record<string, number>, day: any) => {
+    Object.entries(day.productSales || {}).forEach(([product, sales]) => {
+      totals[product] = (totals[product] || 0) + Number(sales || 0);
+    });
+    return totals;
+  }, {} as Record<string, number>);
+  const getSeriesMeta = (series: string) => {
+    const [funnel = 'Sem origem', kind = 'main', ...productParts] = series.split('::');
+    return {
+      funnel: funnel === 'Gestão IA' || funnel === 'Estratégia' ? funnel : 'Sem origem',
+      isOrderBump: kind === 'ob',
+      product: productParts.join('::') || series
+    };
+  };
+  const sortedProducts = Object.entries(productTotals).sort(([, a], [, b]) => b - a);
+  const orderBumpProducts = sortedProducts.filter(([product]) => getSeriesMeta(product).isOrderBump);
+  const mainProducts = sortedProducts.filter(([product]) => !getSeriesMeta(product).isOrderBump);
+  // Keep the chart legible while always showing every Order Bump accepted in the period.
+  const products = [...mainProducts.slice(0, 6), ...orderBumpProducts].map(([product]) => product);
+  const compactProductName = (product: string) => product
+      .replace(/^Curso do Livro\s*[-–]?\s*/i, '')
+      .replace(/^Livro Digital\s*/i, 'Livro ')
+      .replace(/Gestão de Projetos com Inteligência Artificial/gi, 'Gestão IA')
+      .replace(/Gestão de Projetos com IA/gi, 'Gestão IA')
+      .replace(/Estratégia em Ação:\s*PMOs\s*&\s*VMOs/gi, 'Livro')
+      .replace(/Estratégia em Ação/gi, 'Estratégia')
+      .replace(/Base de Conhecimento \+ Copiloto de Leitura/gi, 'Base + Cop.');
+  const compactLegendLabel = (series: string) => {
+    const { funnel, isOrderBump, product } = getSeriesMeta(series);
+    const funnelName = funnel === 'Estratégia' ? 'Estrat.' : funnel === 'Gestão IA' ? 'Gestão' : funnel;
+    return `${funnelName} · ${isOrderBump ? 'OB · ' : ''}${compactProductName(product)}`;
+  };
+  const fullSeriesLabel = (series: string) => {
+    const { funnel, isOrderBump, product } = getSeriesMeta(series);
+    return `${isOrderBump ? 'Order Bump · ' : ''}${funnel} · ${product}`;
+  };
+  const productColor = (series: string) => {
+    const { funnel, isOrderBump } = getSeriesMeta(series);
+    const palette = funnel === 'Estratégia'
+      ? (isOrderBump ? strategyOrderBumpPalette : strategyPalette)
+      : funnel === 'Gestão IA'
+        ? (isOrderBump ? managementOrderBumpPalette : managementPalette)
+        : ['#94A3B8'];
+    const index = (isOrderBump ? orderBumpProducts : mainProducts)
+      .filter(([name]) => getSeriesMeta(name).funnel === funnel)
+      .findIndex(([name]) => name === series);
+    return palette[Math.max(index, 0) % palette.length];
+  };
+  const productChartData = dailyMetrics.map((day) => {
+    const point: Record<string, string | number> = { date: day.date };
+    products.forEach((product, index) => {
+      point[`product_${index}`] = Number(day.productSales?.[product] || 0);
+    });
+    return point;
+  });
 
   return (
     <div className="bg-[#151922]/95 rounded-[8px] border border-white/10 p-5 sm:p-6 shadow-[0_18px_52px_rgba(0,0,0,0.22)]">
       <div className="flex flex-col gap-4 mb-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-base font-bold text-white font-mono">Histórico diário</h3>
-            <p className="mt-1 text-xs text-zinc-400 font-medium">Selecione até cinco métricas para comparar.</p>
+            <h3 className="text-lg font-bold text-white">Histórico diário</h3>
+            <p className="mt-1 text-sm text-zinc-400 font-medium">Selecione até cinco métricas para comparar.</p>
           </div>
           <button
             onClick={() => setSelectedMetrics([])}
-            className="self-start sm:self-auto text-xs font-mono font-bold px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.04] rounded-[8px] transition-colors border border-white/10 cursor-pointer"
+            className="min-h-11 self-start sm:self-auto text-xs font-mono font-bold px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.04] rounded-[8px] transition-colors border border-white/10 cursor-pointer"
           >
             Limpar seleção
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500 mr-1">Análise</span>
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mr-1">Análise</span>
           <button
             type="button"
             onClick={() => setComparePrevious(prev => !prev)}
             aria-pressed={comparePrevious}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 border rounded-[8px] text-xs font-mono font-bold transition-colors",
+              "min-h-11 flex items-center gap-2 px-3 py-2 border rounded-[8px] text-xs font-mono font-bold transition-colors",
               comparePrevious
                 ? "bg-[#00FFBB]/12 border-[#00FFBB]/50 text-[#00FFBB]"
                 : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
@@ -76,7 +136,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
             onClick={() => setShowMovingAverage(prev => !prev)}
             aria-pressed={showMovingAverage}
             className={cn(
-              "flex items-center gap-2 cursor-pointer select-none text-xs font-mono font-bold px-3 py-2 rounded-[8px] border transition-colors",
+              "min-h-11 flex items-center gap-2 cursor-pointer select-none text-xs font-mono font-bold px-3 py-2 rounded-[8px] border transition-colors",
               showMovingAverage
                 ? "bg-[#38BDF8]/12 border-[#38BDF8]/50 text-[#A8D9FF]"
                 : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
@@ -97,27 +157,27 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
         </div>
       </div>
 
-      <div className="h-[380px] w-full">
+      <div className="h-[320px] sm:h-[380px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={dailyMetrics}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
-            <XAxis dataKey="date" tick={{ fill: '#A3A3A3', fontSize: 11, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#262626' }} dy={10} />
+            <XAxis dataKey="date" tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#262626' }} dy={10} />
             
             {hasCurrencyMetric && (
               <YAxis 
                 yAxisId="currency"
                 orientation="left"
-                tick={{ fill: '#A3A3A3', fontSize: 11, fontFamily: 'monospace' }} 
+                tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }}
                 tickLine={false} 
                 axisLine={false} 
                 tickFormatter={(val) => `R$ ${val}`}
               />
             )}
-            {hasNumberMetric && (
+            {hasQuantityMetric && (
               <YAxis 
                 yAxisId="number"
                 orientation="right"
-                tick={{ fill: '#A3A3A3', fontSize: 11, fontFamily: 'monospace' }} 
+                tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }}
                 tickLine={false} 
                 axisLine={false} 
               />
@@ -132,6 +192,8 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                 if (typeof value === 'number') {
                   if (metricKey && METRIC_CONFIG[metricKey].type === 'currency') {
                     formattedVal = formatCurrency(value);
+                  } else if (metricKey && METRIC_CONFIG[metricKey].type === 'percent') {
+                    formattedVal = new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2 }).format(value);
                   } else {
                     formattedVal = formatNumber(value);
                   }
@@ -148,7 +210,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                 fontSize: '12px'
               }}
             />
-            <Legend wrapperStyle={{ paddingTop: '20px', fontFamily: 'monospace', fontSize: '11px' }} iconType="circle" />
+            <Legend wrapperStyle={{ paddingTop: '20px', fontFamily: 'monospace', fontSize: '12px' }} iconType="circle" />
             
             {selectedMetrics.map((key, index) => {
               const config = METRIC_CONFIG[key];
@@ -189,6 +251,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                       stroke={config.color}
                       strokeWidth={2} 
                       strokeDasharray="5 4" 
+                      strokeOpacity={0.72}
                       dot={false} 
                       activeDot={{ r: 4 }} 
                       yAxisId={yAxisId} 
@@ -200,6 +263,43 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {products.length > 0 && (
+        <section className="mt-8 border-t border-white/10 pt-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-white">Vendas por produto e Order Bump</h3>
+            <p className="mt-1 text-sm text-zinc-400 font-medium">Produto principal e Order Bump vendidos por dia no período selecionado.</p>
+          </div>
+          <div className="h-[260px] sm:h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={productChartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
+                <XAxis dataKey="date" tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#262626' }} dy={10} />
+                <YAxis allowDecimals={false} tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+                <Tooltip
+                  formatter={(value: number, name: string) => [formatNumber(value), fullSeriesLabel(name)]}
+                  contentStyle={{ backgroundColor: '#151922', borderColor: 'rgba(148, 163, 184, 0.18)', borderRadius: '8px', color: '#EDEDED', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '12px' }}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: '16px', fontFamily: 'monospace', fontSize: '11px', lineHeight: '18px' }}
+                  iconType="circle"
+                  formatter={(value: string) => <span title={fullSeriesLabel(value)}>{compactLegendLabel(value)}</span>}
+                />
+                {products.map((product, index) => (
+                  <Bar
+                    key={product}
+                    dataKey={`product_${index}`}
+                    name={product}
+                    stackId="products"
+                    fill={productColor(product)}
+                    radius={index === products.length - 1 ? [4, 4, 0, 0] : undefined}
+                  />
+                ))}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

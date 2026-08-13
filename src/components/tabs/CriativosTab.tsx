@@ -34,6 +34,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={15} />
           <input 
             type="text" 
+            aria-label="Filtrar criativos"
             placeholder="Filtrar criativo..." 
             value={creativeFilter}
             onChange={e => setCreativeFilter(e.target.value)}
@@ -41,7 +42,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
           />
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de criativos. Deslize horizontalmente para ver todas as colunas.">
         <table className="w-full text-left text-sm whitespace-nowrap lg:whitespace-normal">
           <thead className="bg-white/[0.045] border-b border-white/10 text-[#00FFBB] font-mono font-bold uppercase tracking-wider text-[11px]">
             <tr>
@@ -94,6 +95,8 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                           <img 
                             src={thumbUrl} 
                             alt={c.name}
+                            loading="lazy"
+                            decoding="async"
                             referrerPolicy="no-referrer"
                             className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
                             onError={(e) => {

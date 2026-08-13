@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Image, X, ExternalLink } from 'lucide-react';
 
 interface LightboxModalProps {
@@ -19,18 +19,60 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   getCreativeThumbnail,
   formatCurrency
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!activeLightboxImage) return;
+
+    const previousFocus = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setActiveLightboxImage(null);
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [activeLightboxImage, setActiveLightboxImage]);
+
   if (!activeLightboxImage) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#1C1C1C] border border-[#262626] rounded-[8px] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="creative-preview-title" className="bg-[#1C1C1C] border border-[#262626] rounded-[8px] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="p-4 bg-white/[0.045] border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0 pr-2">
             <Image size={18} className="text-[#00FFBB] shrink-0" />
-            <h4 className="font-bold text-sm text-zinc-100 truncate font-sans">{activeLightboxImage.name}</h4>
+            <h4 id="creative-preview-title" className="font-bold text-sm text-zinc-100 truncate font-sans">{activeLightboxImage.name}</h4>
           </div>
           <button 
             onClick={() => setActiveLightboxImage(null)}
+            ref={closeButtonRef}
+            aria-label="Fechar prévia do criativo"
             className="p-1.5 rounded-[8px] bg-[#1C1C1C] hover:bg-[#2E2E2E] text-zinc-400 hover:text-white transition-colors cursor-pointer"
           >
             <X size={16} />
@@ -42,6 +84,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             <img 
               src={activeLightboxImage.url} 
               alt={activeLightboxImage.name}
+              decoding="async"
               referrerPolicy="no-referrer"
               className="w-full h-full object-contain"
               onError={(e) => {
@@ -56,7 +99,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
           </div>
 
           {activeLightboxImage.stats && (
-            <div className="grid grid-cols-4 gap-2 w-full bg-[#242424] p-3 rounded-[8px] border border-[#262626] text-center text-xs font-mono">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full bg-[#242424] p-3 rounded-[8px] border border-[#262626] text-center text-xs font-mono">
               <div>
                 <span className="text-[10px] text-zinc-400 font-bold uppercase block">Gasto</span>
                 <span className="font-bold text-zinc-200">{formatCurrency(activeLightboxImage.stats.investimento)}</span>

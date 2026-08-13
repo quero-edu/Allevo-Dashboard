@@ -101,6 +101,10 @@ async function fetchCsv(gid: string, sheetId: string = "1fYoNt2OgXNFRsGg8-5xG8Bk
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
+        if (results.errors.length > 0) {
+          reject(new Error(`Não foi possível interpretar os dados da planilha: ${results.errors[0].message}`));
+          return;
+        }
         resolve(results.data);
       },
       error: (error: any) => {
@@ -415,6 +419,10 @@ async function startServer() {
       const sheetId1 = "1fYoNt2OgXNFRsGg8-5xG8BkZHQJvKpUrHZA8nyeN6W8";
       const sheetId2 = "1qzE3zNFvUQwi_yIDcOrRy00wHxkhMTLzMeb9aCTRAbA";
 
+      if (!['1', '2', 'all', 'consolidado', 'both'].includes(project)) {
+        return res.status(400).json({ error: 'Funil inválido. Selecione um funil disponível e tente novamente.' });
+      }
+
       const getField = (item: any, ...keys: string[]) => {
         for (const k of keys) {
           if (item[k] !== undefined && item[k] !== null && String(item[k]).trim() !== '') {
@@ -531,11 +539,16 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
   };
 }
 
-      const formatBuyers = (item: any) => {
+      const formatBuyers = (item: any, funil: 'Estratégia' | 'Gestão IA') => {
         // Column B carries the source purchase timestamp. Use C only when B is empty.
         // Both values are converted from UTC to UTC-3 below.
         const buyerValues = Object.values(item || {});
         const rawPurchaseDate = String(buyerValues[1] || buyerValues[2] || "").trim();
+        // The sales sheets keep the offer data in fixed columns: L = main product,
+        // O = accepted order bump. Read the positions so different header labels do
+        // not break the dashboard's commercial metrics.
+        const produtoPrincipal = String(item["Produto Principal"] || item["Produto"] || buyerValues[11] || "").trim();
+        const orderBump = String(item["Order Bump"] || item["Order bump"] || buyerValues[14] || "").trim();
 
         const parsedDate = parseUtcToUtcMinus3(rawPurchaseDate);
 
@@ -550,7 +563,10 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
           "utm_medium": item["utm_medium"] || item["Medium"] || "",
           "utm_term": item["utm_term"] || "",
           "utm_content": item["utm_content"] || "",
-          "Produto": item["Produto Principal"] || item["Produto"] || ""
+          "Produto": produtoPrincipal,
+          "Produto Principal": produtoPrincipal,
+          "Order Bump": orderBump,
+          "Funil": funil
         };
       };
 
@@ -565,7 +581,10 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
 
         const data: any = {
           "Dados da Meta": [...metaItems1.map(formatMeta), ...metaItems2.map(formatMeta)],
-          "Dados dos Compradores": [...compradoresItems1.map(formatBuyers), ...compradoresItems2.map(formatBuyers)],
+          "Dados dos Compradores": [
+            ...compradoresItems1.map((item) => formatBuyers(item, 'Estratégia')),
+            ...compradoresItems2.map((item) => formatBuyers(item, 'Gestão IA'))
+          ],
           "Link dos criativos": [...criativosItems1, ...criativosItems2]
         };
 
@@ -585,14 +604,17 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
 
       const data: any = {
         "Dados da Meta": metaItems.map(formatMeta),
-        "Dados dos Compradores": compradoresItems.map(formatBuyers),
+        "Dados dos Compradores": compradoresItems.map((item) => formatBuyers(item, project === '2' ? 'Gestão IA' : 'Estratégia')),
         "Link dos criativos": criativosItems
       };
 
       res.json({ data, project, sheetId });
     } catch (error: any) {
       console.error("Erro ao buscar dados da planilha:", error);
-      res.status(400).json({ error: error.message || "Erro interno no servidor ao processar os dados" });
+      const message = error.message || "Erro interno no servidor ao processar os dados";
+      const isPermissionError = /privada|permissão|compartilhar/i.test(message);
+      const isTimeout = error?.name === 'TimeoutError' || /timed out|timeout/i.test(message);
+      res.status(isPermissionError ? 403 : isTimeout ? 504 : 502).json({ error: message });
     }
   });
 

@@ -233,7 +233,7 @@ export const FontesTab: React.FC<FontesTabProps> = ({
           <h3 className="text-base font-mono font-bold tracking-tight text-[#00FFBB] uppercase">Análise de Vendas por Página</h3>
           <p className="text-xs font-mono font-medium text-zinc-400 uppercase tracking-wider mt-1">Tráfego gerado x Vendas convertidas</p>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de vendas por página. Deslize horizontalmente para ver todas as colunas.">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-white/[0.045] border-b border-white/10 text-[#00FFBB] font-mono font-bold uppercase tracking-wider text-[10px]">
               <tr>

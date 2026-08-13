@@ -9,25 +9,39 @@
     --surface-4: #334155;
     
     --text-primary: #FFFFFF;
-    --text-muted: #AAB4C5;
-    --text-subtle: #748096;
+    --text-muted: #B6C1D2;
+    --text-subtle: #8290A5;
     
     --border-hairline: rgba(148, 163, 184, 0.16);
     --border-strong: rgba(148, 163, 184, 0.26);
     --border-input: rgba(148, 163, 184, 0.34);
     
-    --action-default: #3EE8B5;
-    --action-hover: #61F0C5;
-    --action-pressed: #20B98A;
+    --brand-strategy: #00FFBB;
+    --brand-strategy-strong: #00D99F;
+    --brand-management: #66BEFF;
+    --metric-investment: #F59E0B;
+    --metric-revenue: #00E5A8;
+    --metric-efficiency: #A3E635;
+    --metric-risk: #F43F5E;
+
+    --action-default: var(--brand-strategy);
+    --action-hover: #45FFD0;
+    --action-pressed: var(--brand-strategy-strong);
     --action-ink: #061814;
-    --action-subtle: rgba(62, 232, 181, 0.12);
+    --action-subtle: rgba(0, 255, 187, 0.12);
+
+    --canvas: #0F1115;
+    --panel: #151922;
+    --panel-elevated: #1C2230;
+    --control: #242424;
+    --line: rgba(148, 163, 184, 0.16);
   }
 
   body {
     background:
       radial-gradient(circle at top left, rgba(62, 232, 181, 0.11), transparent 30rem),
       radial-gradient(circle at 85% 12%, rgba(102, 190, 255, 0.12), transparent 26rem),
-      #0F1115;
+      var(--canvas);
     color: #FFFFFF;
     font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     letter-spacing: 0;
@@ -49,14 +63,18 @@
   --space-4: 1rem;
   --space-5: 1.25rem;
   --space-6: 1.5rem;
+  --type-meta: 0.75rem;
+  --type-label: 0.8125rem;
+  --type-body: 1rem;
+  --type-section: 1.125rem;
   --radius-control: 0.5rem;
   --radius-panel: 0.75rem;
-  --focus-ring: #66BEFF;
+  --focus-ring: var(--brand-management);
   --allevo-surface-dark: #1A1A1A;
   --allevo-surface-dark-elevated: #252525;
   --allevo-text-on-action: #1A1A1A;
-  --allevo-action-start: #00D99F;
-  --allevo-action-end: #00FFBB;
+  --allevo-action-start: var(--brand-strategy-strong);
+  --allevo-action-end: var(--brand-strategy);
 }
 
 :focus-visible {
@@ -206,6 +224,17 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
 }
 
+.dashboard-shell .table-scroll-region {
+  scrollbar-color: var(--surface-4) transparent;
+  scrollbar-width: thin;
+}
+
+@media (pointer: coarse) {
+  .dashboard-shell .metric-card:hover {
+    transform: none;
+  }
+}
+
 .metric-card:hover {
   border-color: rgba(62, 232, 181, 0.32);
   transform: translateY(-1px);
@@ -213,13 +242,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* Typography roles: readable operational labels, strong values, stable numeric scanning. */
 .dashboard-shell .font-mono {
-  letter-spacing: 0.01em;
+  letter-spacing: 0.015em;
 }
 
 .metric-card [data-metric-title] {
-  font-size: 0.875rem;
+  font-size: var(--type-label);
   font-weight: 650;
-  letter-spacing: 0.055em;
+  letter-spacing: 0.045em;
   line-height: 1.25;
 }
 
@@ -231,11 +260,40 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .metric-card [data-metric-subtext] {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   line-height: 1.4;
 }
 
 .metric-card [data-metric-comparison] {
   font-size: 0.8125rem;
+  line-height: 1.25;
+}
+
+.metric-card--compact {
+  min-height: 0;
+  padding: 1rem;
+  justify-content: flex-start;
+  gap: 1.25rem;
+}
+
+.metric-card--compact [data-metric-title] {
+  font-size: var(--type-label);
+}
+
+.metric-card--compact [data-metric-value] {
+  font-size: clamp(1.7rem, 2vw, 2.15rem);
+}
+
+.metric-card--compact [data-metric-subtext] {
+  font-size: 0.875rem;
+}
+
+.metric-card--compact [data-metric-comparison] {
+  margin-top: auto;
+}
+
+.dashboard-shell .badge-primary-green {
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
   line-height: 1.25;
 }

@@ -7,14 +7,14 @@ import {
 import { fetchSpreadsheetData } from '../services/api';
 import { cn } from '../lib/utils';
 import { filterByDate, buildDateFilter, buildPreviousDateFilter, getPreviousPeriodLabel, calculateComparison, parseValue, formatCurrency, formatPercent, formatNumber, parseUtcToUtcMinus3 } from '../lib/metrics';
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, ComposedChart, XAxis, YAxis, CartesianGrid, Legend, Area, Bar, Line } from 'recharts';
 import { AuthUser } from './AuthGate';
-import { DailyChartSection } from './tabs/DailyChartSection';
-import { CampanhasTab } from './tabs/CampanhasTab';
-import { FunilTab } from './tabs/FunilTab';
-import { CriativosTab } from './tabs/CriativosTab';
-import { FontesTab } from './tabs/FontesTab';
 import { LightboxModal } from './tabs/LightboxModal';
+
+const DailyChartSection = React.lazy(() => import('./tabs/DailyChartSection').then(({ DailyChartSection }) => ({ default: DailyChartSection })));
+const CampanhasTab = React.lazy(() => import('./tabs/CampanhasTab').then(({ CampanhasTab }) => ({ default: CampanhasTab })));
+const FunilTab = React.lazy(() => import('./tabs/FunilTab').then(({ FunilTab }) => ({ default: FunilTab })));
+const CriativosTab = React.lazy(() => import('./tabs/CriativosTab').then(({ CriativosTab }) => ({ default: CriativosTab })));
+const FontesTab = React.lazy(() => import('./tabs/FontesTab').then(({ FontesTab }) => ({ default: FontesTab })));
 
 const ALLEVO_ACTION_INK = '#1A1A1A';
 const ALLEVO_ACTION_STYLE: React.CSSProperties = {
@@ -31,6 +31,14 @@ const ALLEVO_ACTION_ICON_STYLE: React.CSSProperties = {
   color: ALLEVO_ACTION_INK,
   stroke: ALLEVO_ACTION_INK
 };
+
+function PanelLoadingState() {
+  return (
+    <div role="status" className="min-h-64 flex items-center justify-center rounded-[8px] border border-white/10 bg-[#151922] text-sm font-medium text-zinc-400">
+      Carregando painel...
+    </div>
+  );
+}
 
 function getCreativeThumbnail(creativeName: string, customImage?: string) {
   if (customImage && typeof customImage === 'string' && customImage.trim() !== '') {
@@ -70,16 +78,17 @@ function getCreativeThumbnail(creativeName: string, customImage?: string) {
   return mockImages[Math.abs(hash) % mockImages.length];
 }
 
-const METRIC_CONFIG: Record<string, { label: string, color: string, type: 'currency' | 'number', renderType: 'bar' | 'line' }> = {
-  investimentoTotal: { label: 'Investimento Total', color: '#66BEFF', type: 'currency', renderType: 'bar' },
-  faturamentoTotal: { label: 'Faturamento Total', color: '#00FFBB', type: 'currency', renderType: 'line' },
-  lucroTotal: { label: 'Lucro Total', color: '#00FFBB', type: 'currency', renderType: 'line' },
+const METRIC_CONFIG: Record<string, { label: string, color: string, type: 'currency' | 'number' | 'percent', renderType: 'bar' | 'line' }> = {
+  investimentoTotal: { label: 'Investimento Total', color: '#F59E0B', type: 'currency', renderType: 'bar' },
+  faturamentoTotal: { label: 'Faturamento Total', color: '#00E5A8', type: 'currency', renderType: 'line' },
+  lucroTotal: { label: 'Lucro Total', color: '#34D399', type: 'currency', renderType: 'line' },
   ticketMedio: { label: 'Ticket Médio', color: '#A855F7', type: 'currency', renderType: 'line' },
-  vendasIngressos: { label: 'Livros Vendidos (Geral)', color: '#00FFBB', type: 'number', renderType: 'bar' },
-  vendasTrafego: { label: 'Livros via Tráfego', color: '#66BEFF', type: 'number', renderType: 'line' },
+  vendasIngressos: { label: 'Livros Vendidos (Geral)', color: '#14B8A6', type: 'number', renderType: 'bar' },
+  vendasTrafego: { label: 'Livros via Tráfego', color: '#60A5FA', type: 'number', renderType: 'line' },
   cpaTrafego: { label: 'CPA (Tráfego)', color: '#F43F5E', type: 'currency', renderType: 'line' },
-  cpaTotal: { label: 'CPA (Total)', color: '#38BDF8', type: 'currency', renderType: 'line' },
-  roas: { label: 'ROAS', color: '#00FFBB', type: 'number', renderType: 'line' }
+  cpaTotal: { label: 'CPA (Total)', color: '#F97316', type: 'currency', renderType: 'line' },
+  roas: { label: 'ROAS', color: '#A3E635', type: 'number', renderType: 'line' },
+  conversaoOrderBump: { label: 'Conversão de Order Bump', color: '#A3E635', type: 'percent', renderType: 'line' }
 };
 
 interface MetricCardProps {
@@ -132,7 +141,7 @@ function MetricCard({
           data-active-green="true"
           data-action-ink="true"
           style={ALLEVO_ACTION_STYLE}
-          className="allevo-action badge-primary-green absolute top-0 right-0 px-2.5 py-0.5 bg-[#00FFBB] !text-[#1A1A1A] text-[9px] font-mono font-black uppercase tracking-widest rounded-bl-[8px] shadow-sm flex items-center gap-1 z-10"
+          className="allevo-action badge-primary-green absolute top-0 right-0 px-2.5 py-0.5 bg-[#00FFBB] !text-[#1A1A1A] text-[10px] font-mono font-black uppercase tracking-widest rounded-bl-[8px] shadow-sm flex items-center gap-1 z-10"
         >
           <Zap size={10} color={ALLEVO_ACTION_INK} fill={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={{ ...ALLEVO_ACTION_ICON_STYLE, fill: ALLEVO_ACTION_INK }} className="shrink-0 !text-[#1A1A1A] stroke-[#1A1A1A]" />
           <span style={{ ...ALLEVO_ACTION_TEXT_STYLE, fontWeight: 900 }} className="!text-[#1A1A1A] font-black">{heroTag || "Destaque"}</span>
@@ -376,6 +385,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         cliquesTotal: 0,
         pageViewsTotal: 0,
         checkoutsTotal: 0,
+        vendasOrderBump: 0,
+        conversaoOrderBump: 0,
       },
       campaigns: [] as any[],
       creatives: [] as any[],
@@ -505,6 +516,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     const lucroTotal = faturamentoTotal - investimentoTotal;
     const vendasIngressos = filteredBuyers.length;
     const ticketMedio = vendasIngressos > 0 ? faturamentoTotal / vendasIngressos : 0;
+    const vendasOrderBump = filteredBuyers.filter((row: any) => String(row['Order Bump'] || '').trim() !== '').length;
+    const conversaoOrderBump = vendasIngressos > 0 ? vendasOrderBump / vendasIngressos : 0;
 
     // Funnel Meta Totals
     const impressoesTotal = metaData.reduce((acc: number, row: any) => acc + parseValue(row['Impressões']), 0);
@@ -672,6 +685,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       const prevLucroTotal = prevFaturamentoTotal - prevInvestimentoTotal;
       const prevVendasIngressos = prevBuyersByDate.length;
       const prevTicketMedio = prevVendasIngressos > 0 ? prevFaturamentoTotal / prevVendasIngressos : 0;
+      const prevVendasOrderBump = prevBuyersByDate.filter((row: any) => String(row['Order Bump'] || '').trim() !== '').length;
+      const prevConversaoOrderBump = prevVendasIngressos > 0 ? prevVendasOrderBump / prevVendasIngressos : 0;
 
       const prevImpressoesTotal = prevMetaData.reduce((acc: number, row: any) => acc + parseValue(row['Impressões']), 0);
       const prevCliquesTotal = prevMetaData.reduce((acc: number, row: any) => acc + parseValue(row['Cliques no Link']), 0);
@@ -697,6 +712,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         cliquesTotal: prevCliquesTotal,
         pageViewsTotal: prevPageViewsTotal,
         checkoutsTotal: prevCheckoutsTotal,
+        vendasOrderBump: prevVendasOrderBump,
+        conversaoOrderBump: prevConversaoOrderBump,
       };
 
       comparison = {
@@ -713,6 +730,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         cliquesTotal: calculateComparison(cliquesTotal, prevCliquesTotal, false, 'number'),
         pageViewsTotal: calculateComparison(pageViewsTotal, prevPageViewsTotal, false, 'number'),
         checkoutsTotal: calculateComparison(checkoutsTotal, prevCheckoutsTotal, false, 'number'),
+        conversaoOrderBump: calculateComparison(conversaoOrderBump, prevConversaoOrderBump, false, 'percent'),
       };
     }
 
@@ -1101,6 +1119,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           cliquesTotal: 0,
           pageViewsTotal: 0,
           checkoutsTotal: 0,
+          productSales: {},
+          vendasOrderBump: 0,
+          conversaoOrderBump: 0,
         };
       }
       return allDailyMap[dayKey];
@@ -1130,6 +1151,20 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       const valStr = row['Valor'] || row['Valor Bruto'] || row['Preço'] || row['Faturamento'] || row['Valor Pago'] || '0';
       dayData.faturamentoTotal += parseValue(valStr);
       dayData.vendasIngressos += 1;
+      const product = String(row['Produto Principal'] || row['Produto'] || 'Produto não identificado').trim() || 'Produto não identificado';
+      const funnel = row['Funil'] === 'Gestão IA'
+        ? 'Gestão IA'
+        : row['Funil'] === 'Estratégia'
+          ? 'Estratégia'
+          : 'Sem origem';
+      const productLabel = `${funnel}::main::${product}`;
+      dayData.productSales[productLabel] = (dayData.productSales[productLabel] || 0) + 1;
+      const orderBump = String(row['Order Bump'] || '').trim();
+      if (orderBump) {
+        dayData.vendasOrderBump += 1;
+        const orderBumpLabel = `${funnel}::ob::${orderBump}`;
+        dayData.productSales[orderBumpLabel] = (dayData.productSales[orderBumpLabel] || 0) + 1;
+      }
       
       if (isTrafficSale(row)) {
         dayData.vendasTrafego += 1;
@@ -1143,6 +1178,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       d.cpaTrafego = d.vendasTrafego > 0 ? d.investimentoTotal / d.vendasTrafego : 0;
       d.cpaTotal = d.vendasIngressos > 0 ? d.investimentoTotal / d.vendasIngressos : 0;
       d.roas = d.investimentoTotal > 0 ? d.faturamentoTotal / d.investimentoTotal : 0;
+      d.conversaoOrderBump = d.vendasIngressos > 0 ? d.vendasOrderBump / d.vendasIngressos : 0;
       return d;
     });
 
@@ -1194,7 +1230,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
     return {
       geral: {
-        investimentoTotal, faturamentoTotal, lucroTotal, ticketMedio, vendasIngressos, vendasTrafego, cpaTrafego, cpaTotal, roas, impressoesTotal, cliquesTotal, pageViewsTotal, checkoutsTotal
+        investimentoTotal, faturamentoTotal, lucroTotal, ticketMedio, vendasIngressos, vendasTrafego, cpaTrafego, cpaTotal, roas, impressoesTotal, cliquesTotal, pageViewsTotal, checkoutsTotal, vendasOrderBump, conversaoOrderBump
       },
       prevGeral,
       comparison,
@@ -1433,11 +1469,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     selectedFunnels.strategy && { label: 'Livro Estratégia em Ação', color: '#00FFBB' },
     selectedFunnels.management && { label: 'Livro Gestão de Projetos com IA', color: '#66BEFF' }
   ].filter(Boolean) as { label: string; color: string }[];
+  const isPermissionError = Boolean(fetchError && /privada|permissão|compartilhar|acesso/i.test(fetchError));
+  const hasInvalidCustomDateRange = Boolean(customDates.start && customDates.end && customDates.start > customDates.end);
 
   return (
     <div className="dashboard-shell min-h-screen bg-[#0F1115] text-zinc-100 font-sans pb-24 selection:bg-[#00FFBB]/30 selection:text-[#00FFBB]">
       {/* HEADER */}
-      <header className="bg-[#10141B]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sticky top-0 z-20 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+      <header className="bg-[#10141B]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 sticky top-0 z-20 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
         <div className="flex items-center justify-between sm:justify-start gap-3 shrink-0">
           {/* Top Brand Logo & Profile Badge Row */}
           <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-auto">
@@ -1448,7 +1486,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 alt="AllevoTech" 
                 className="h-9 sm:h-10 w-auto object-contain hover:opacity-90 transition-opacity"
               />
-              <span className="mt-0.5 pl-0.5 text-[11px] font-semibold text-zinc-400">Dashboard de performance</span>
+              <span className="mt-0.5 pl-0.5 text-xs font-semibold text-zinc-400">Dashboard de performance</span>
             </div>
 
             {/* Corporate Profile & Access Menu (Positioned beside AllevoTech Logo) */}
@@ -1467,7 +1505,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                     <span className="font-bold text-zinc-200 text-[10px] sm:text-[11px] leading-tight truncate">
                       {authUser.email.split('@')[0]}
                     </span>
-                    <span className="text-[8px] sm:text-[9px] text-[#00FFBB] font-mono font-bold flex items-center gap-0.5 sm:gap-1">
+                    <span className="text-[10px] sm:text-[11px] text-[#00FFBB] font-mono font-bold flex items-center gap-0.5 sm:gap-1">
                       <ShieldCheck size={10} />
                       Verificado
                     </span>
@@ -1538,13 +1576,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto">
           <div className="relative shrink-0" ref={funnelMenuRef}>
             <button
               onClick={() => setIsFunnelMenuOpen(prev => !prev)}
               aria-expanded={isFunnelMenuOpen}
               aria-haspopup="menu"
-              className="flex items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-sm font-semibold focus:outline-none shadow-sm"
+              className="min-h-11 flex items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-sm font-semibold focus:outline-none shadow-sm"
             >
               <Layers size={16} className="text-[#00FFBB]" />
               <span className="text-zinc-400">Funis</span>
@@ -1583,12 +1621,12 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           <div className="relative shrink-0" ref={dateMenuRef}>
             <button
               onClick={() => setIsDateMenuOpen(prev => !prev)}
-              className="flex items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-xs font-bold focus:outline-none shadow-sm group"
+              className="min-h-11 flex items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-xs font-bold focus:outline-none shadow-sm group"
               title="Filtrar Período de Análise"
             >
               <Calendar size={14} className="text-[#00FFBB]" />
               <div className="flex items-center gap-1.5">
-                <span className="text-zinc-400 font-medium text-[11px]">Período:</span>
+                <span className="text-zinc-400 font-medium text-xs">Período:</span>
                 <span className="text-[#00FFBB] font-mono font-bold">{getLabelForDateRange(dateRange, customDates)}</span>
               </div>
               <ChevronDown size={14} className={cn("text-zinc-400 transition-transform duration-200 ml-0.5", isDateMenuOpen && "rotate-180 text-[#00FFBB]")} />
@@ -1639,10 +1677,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
                 {/* Custom Date Range Picker */}
                 <div className="pt-3 border-t border-[#262626] space-y-2 mb-3">
-                  <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">Datas Personalizadas</span>
+                  <span className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider block">Datas Personalizadas</span>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label htmlFor="dashboard-start-date" className="text-[10px] text-zinc-300 block mb-1 font-mono font-bold">Data Inicial</label>
+                      <label htmlFor="dashboard-start-date" className="text-xs text-zinc-300 block mb-1 font-mono font-bold">Data Inicial</label>
                       <div className="relative flex items-center">
                         <input 
                           id="dashboard-start-date"
@@ -1656,18 +1694,20 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                           onChange={(e) => {
                             const start = e.target.value;
                             setCustomDates(prev => ({...prev, start}));
-                            if (start && customDates.end) {
+                            if (start && customDates.end && start <= customDates.end) {
                               setDateRange(`CUSTOM:${start}|${customDates.end}`);
                               setIsDateMenuOpen(false);
                             }
                           }}
-                          className="w-full pl-3 pr-8 py-2 text-xs font-mono font-bold rounded-[8px] border border-[#383838] bg-[#242424] text-white hover:bg-[#2E2E2E] hover:border-[#00FFBB] focus:outline-none focus:ring-2 focus:ring-[#00FFBB] cursor-pointer shadow-inner [color-scheme:dark]" 
+                          className="w-full pl-3 pr-8 py-2 text-base sm:text-xs font-mono font-bold rounded-[8px] border border-[#383838] bg-[#242424] text-white hover:bg-[#2E2E2E] hover:border-[#00FFBB] focus:outline-none focus:ring-2 focus:ring-[#00FFBB] cursor-pointer shadow-inner [color-scheme:dark]"
+                          aria-invalid={hasInvalidCustomDateRange}
+                          aria-describedby={hasInvalidCustomDateRange ? 'dashboard-date-range-error' : undefined}
                         />
                         <Calendar size={14} className="absolute right-3 text-[#00FFBB] pointer-events-none shrink-0 stroke-[2.5]" />
                       </div>
                     </div>
                     <div>
-                      <label htmlFor="dashboard-end-date" className="text-[10px] text-zinc-300 block mb-1 font-mono font-bold">Data Final</label>
+                      <label htmlFor="dashboard-end-date" className="text-xs text-zinc-300 block mb-1 font-mono font-bold">Data Final</label>
                       <div className="relative flex items-center">
                         <input 
                           id="dashboard-end-date"
@@ -1681,17 +1721,24 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                           onChange={(e) => {
                             const end = e.target.value;
                             setCustomDates(prev => ({...prev, end}));
-                            if (customDates.start && end) {
+                            if (customDates.start && end && customDates.start <= end) {
                               setDateRange(`CUSTOM:${customDates.start}|${end}`);
                               setIsDateMenuOpen(false);
                             }
                           }}
-                          className="w-full pl-3 pr-8 py-2 text-xs font-mono font-bold rounded-[8px] border border-[#383838] bg-[#242424] text-white hover:bg-[#2E2E2E] hover:border-[#00FFBB] focus:outline-none focus:ring-2 focus:ring-[#00FFBB] cursor-pointer shadow-inner [color-scheme:dark]" 
+                          className="w-full pl-3 pr-8 py-2 text-base sm:text-xs font-mono font-bold rounded-[8px] border border-[#383838] bg-[#242424] text-white hover:bg-[#2E2E2E] hover:border-[#00FFBB] focus:outline-none focus:ring-2 focus:ring-[#00FFBB] cursor-pointer shadow-inner [color-scheme:dark]"
+                          aria-invalid={hasInvalidCustomDateRange}
+                          aria-describedby={hasInvalidCustomDateRange ? 'dashboard-date-range-error' : undefined}
                         />
                         <Calendar size={14} className="absolute right-3 text-[#00FFBB] pointer-events-none shrink-0 stroke-[2.5]" />
                       </div>
                     </div>
                   </div>
+                  {hasInvalidCustomDateRange && (
+                    <p id="dashboard-date-range-error" className="text-xs text-rose-300 font-medium" role="alert">
+                      A data final precisa ser igual ou posterior à data inicial.
+                    </p>
+                  )}
                 </div>
 
               </div>
@@ -1701,18 +1748,19 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           {/* Sync Button & Last Updated Indicator */}
           <div className="flex items-center gap-2 shrink-0">
             {lastUpdated && (
-              <span className="text-[11px] text-zinc-400 font-mono font-medium hidden lg:inline-block pr-1">
+              <span className="text-[11px] text-zinc-400 font-mono font-medium hidden xl:inline-block pr-1">
                 Última sinc. às <strong className="text-zinc-200 font-bold">{lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}h</strong>
               </span>
             )}
             <button 
               onClick={() => loadData(selectedProject)}
               disabled={loading}
+              aria-busy={loading}
               data-action-ink="true"
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
               style={ALLEVO_ACTION_STYLE}
               aria-label="Sincronizar planilha"
-              className="allevo-action btn-primary-green w-10 h-10 bg-[#00FFBB] !text-[#1A1A1A] rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center justify-center shrink-0 active:scale-95 cursor-pointer"
+              className="allevo-action btn-primary-green w-11 h-11 bg-[#00FFBB] !text-[#1A1A1A] rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center justify-center shrink-0 active:scale-95 cursor-pointer"
             >
               <RotateCcw size={18} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A]", loading && "animate-spin")} />
             </button>
@@ -1721,14 +1769,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       </header>
 
       <main className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="flex items-start gap-6">
-          <aside className={cn("hidden sm:block sticky top-24 shrink-0 transition-[width] duration-200", isSidebarCollapsed ? "w-[58px]" : "w-56")}>
+        <div className="flex items-start gap-4 xl:gap-6">
+          <aside className={cn("hidden lg:block sticky top-24 shrink-0 transition-[width] duration-200", isSidebarCollapsed ? "w-[58px]" : "w-52")}>
             <div className="bg-[#151922] border border-white/10 rounded-[8px] p-2 shadow-[0_12px_34px_rgba(0,0,0,0.18)]">
               <div className={cn("flex items-center mb-2", isSidebarCollapsed ? "justify-center" : "justify-between px-2") }>
                 {!isSidebarCollapsed && <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">Navegação</span>}
                 <button
                   onClick={() => setIsSidebarCollapsed(prev => !prev)}
-                  className="w-8 h-8 flex items-center justify-center rounded-[6px] text-zinc-400 hover:text-[#00FFBB] hover:bg-white/[0.06] transition-colors"
+                  className="w-11 h-11 flex items-center justify-center rounded-[6px] text-zinc-400 hover:text-[#00FFBB] hover:bg-white/[0.06] transition-colors"
                   title={isSidebarCollapsed ? "Expandir menu" : "Recolher menu"}
                   aria-label={isSidebarCollapsed ? "Expandir menu" : "Recolher menu"}
                 >
@@ -1765,19 +1813,20 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
           <section className="min-w-0 flex-1">
         {fetchError && (
-          <div className="mb-8 p-6 bg-[#1C1C1C] border border-[#00FFBB]/50 rounded-[8px] shadow-lg text-zinc-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div role="alert" aria-live="assertive" className="mb-8 p-6 bg-[#1C1C1C] border border-[#00FFBB]/50 rounded-[8px] shadow-lg text-zinc-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-[#00FFBB]/15 text-[#00FFBB] border border-[#00FFBB]/30 rounded-[8px] shrink-0">
                 <AlertTriangle size={26} />
               </div>
               <div>
                 <h3 className="font-bold text-base text-[#00FFBB] mb-1">
-                  Atenção: Permissão de Acesso Necessária na Planilha
+                  {isPermissionError ? 'Permissão de acesso necessária na planilha' : 'Não foi possível atualizar os dados'}
                 </h3>
                 <p className="text-sm text-zinc-300 leading-relaxed max-w-3xl mb-2">
                   {fetchError}
+                  {data && ' Os últimos dados carregados continuam visíveis.'}
                 </p>
-                {(selectedProject === '2' || selectedProject === 'all') && (
+                {isPermissionError && (selectedProject === '1' || selectedProject === '2' || selectedProject === 'all') && (
                   <div className="mt-3 text-xs bg-[#242424] p-3.5 rounded-[8px] border border-[#262626]">
                     <p className="font-mono font-bold text-[#00FFBB] mb-1">Como resolver no Google Sheets (15 segundos):</p>
                     <ol className="list-decimal list-inside space-y-1 text-zinc-300">
@@ -1792,8 +1841,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         </>
                       )}
                       <li>Clique no botão <strong>Compartilhar</strong> (canto superior direito).</li>
-                      <li>Em <em>Acesso geral</em>, mude de <strong>Restrito</strong> para <strong>Qualquer pessoa com o link</strong> (como Leitor).</li>
-                      <li>Clique em <strong>Concluído</strong> e depois no botão ao lado para recarregar os dados.</li>
+                      <li>Não habilite acesso público por esta tela. Fale com o administrador do dashboard para revisar a conexão com a planilha.</li>
+                      <li>Depois que o acesso for corrigido, sincronize novamente.</li>
                     </ol>
                   </div>
                 )}
@@ -1812,7 +1861,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           </div>
         )}
         
-            <div className="sm:hidden w-full relative mb-6" ref={tabMenuRef}>
+            <div className="lg:hidden w-full relative mb-5" ref={tabMenuRef}>
               <button
                 onClick={() => setIsTabMenuOpen(prev => !prev)}
                 className="w-full flex items-center justify-between px-4 py-3 bg-[#1C1C1C] border border-[#262626] hover:border-[#383838] rounded-[8px] text-white font-bold text-sm shadow-lg focus:outline-none transition-all"
@@ -1875,17 +1924,18 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             </div>
 
         {loading && !data ? (
-          <div className="flex flex-col justify-center items-center h-64 text-zinc-400 gap-4">
+          <div role="status" aria-live="polite" className="flex flex-col justify-center items-center h-64 text-zinc-400 gap-4">
             <RotateCcw size={32} className="animate-spin text-[#00FFBB]" />
             <span className="font-bold tracking-wide">Puxando dados da Planilha...</span>
           </div>
         ) : (
           <>
+            <React.Suspense fallback={<PanelLoadingState />}>
             {activeTab === 'Geral' && (
-              <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 {/* TOP ROW: HERO METRICS HIGHLIGHTED */}
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-5" aria-label="Funis selecionados">
+                  <div className="flex flex-wrap items-center gap-2 mb-3" aria-label="Funis selecionados">
                     <span className="text-xs font-semibold text-zinc-500">Funis</span>
                     {selectedFunnelTags.map((funnel) => (
                       <span key={funnel.label} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-zinc-200">
@@ -1894,14 +1944,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       </span>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between gap-4 mb-4">
                     <span className="text-sm font-bold uppercase tracking-[0.08em] text-[#00FFBB] flex items-center gap-1.5">
                       <Zap size={14} className="fill-[#00FFBB]" /> Principais KPIs
                     </span>
                     <span className="text-sm text-zinc-400 font-medium hidden sm:inline">Clique em uma métrica para destacar no gráfico</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5">
                     <MetricCard 
                       id="investimentoTotal"
                       title="Investimento Total"
@@ -1963,7 +2013,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                     Outras Métricas Operacionais
                   </span>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                     <MetricCard 
                       id="lucroTotal"
                       title="Lucro Total"
@@ -1975,6 +2025,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('lucroTotal')}
                       comparison={comp.lucroTotal}
                       comparisonLabel={comparisonLabel}
+                      className="metric-card--compact"
                     />
                     <MetricCard 
                       id="vendasIngressos"
@@ -1986,6 +2037,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('vendasIngressos')}
                       comparison={comp.vendasIngressos}
                       comparisonLabel={comparisonLabel}
+                      className="metric-card--compact"
                     />
                     <MetricCard 
                       id="vendasTrafego"
@@ -1997,6 +2049,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('vendasTrafego')}
                       comparison={comp.vendasTrafego}
                       comparisonLabel={comparisonLabel}
+                      className="metric-card--compact"
                     />
                     <MetricCard 
                       id="cpaTrafego"
@@ -2008,6 +2061,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('cpaTrafego')}
                       comparison={comp.cpaTrafego}
                       comparisonLabel={comparisonLabel}
+                      className="metric-card--compact"
                     />
                     <MetricCard 
                       id="roas"
@@ -2019,6 +2073,19 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('roas')}
                       comparison={comp.roas}
                       comparisonLabel={comparisonLabel}
+                      className="metric-card--compact"
+                    />
+                    <MetricCard
+                      id="conversaoOrderBump"
+                      title="Conversão Order Bump"
+                      value={formatPercent(geral.conversaoOrderBump)}
+                      subtext={`${geral.vendasOrderBump} OB / ${geral.vendasIngressos} vendas`}
+                      icon={<Package size={20} />}
+                      selected={selectedMetrics.includes('conversaoOrderBump')}
+                      onClick={() => toggleMetric('conversaoOrderBump')}
+                      comparison={comp.conversaoOrderBump}
+                      comparisonLabel={comparisonLabel}
+                      className="metric-card--compact"
                     />
                   </div>
                 </div>
@@ -2095,6 +2162,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 formatPercent={formatPercent}
               />
             )}
+            </React.Suspense>
           </>
         )}
         

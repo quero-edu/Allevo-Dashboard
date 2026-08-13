@@ -29,7 +29,7 @@ export const CampanhasTab: React.FC<CampanhasTabProps> = ({
   return (
     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="bg-[#151922]/95 rounded-[8px] border border-white/10 shadow-[0_18px_52px_rgba(0,0,0,0.22)] overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de campanhas. Deslize horizontalmente para ver todas as colunas.">
           <table className="w-full text-left text-sm whitespace-nowrap lg:whitespace-normal">
             <thead className="bg-white/[0.045] border-b border-white/10 text-[#00FFBB] font-mono font-bold uppercase tracking-wider text-[11px]">
               <tr>

@@ -1442,11 +1442,16 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       ? 'Livro Gestão de Projetos com IA'
       : 'Consolidado dos dois funis';
 
+  const selectedProjectTags = [
+    selectedFunnels.strategy && { label: 'Livro Estratégia em Ação', color: '#00FFBB' },
+    selectedFunnels.management && { label: 'Livro Gestão de Projetos com IA', color: '#66BEFF' }
+  ].filter(Boolean) as { label: string; color: string }[];
+
   return (
     <div className="dashboard-shell min-h-screen bg-[#0F1115] text-zinc-100 font-sans pb-24 selection:bg-[#00FFBB]/30 selection:text-[#00FFBB]">
       {/* HEADER */}
-      <header className="bg-[#10141B]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3 sticky top-0 z-20 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between xl:justify-start gap-3 w-full xl:w-auto">
+      <header className="bg-[#10141B]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sticky top-0 z-20 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+        <div className="flex items-center justify-between sm:justify-start gap-3 shrink-0">
           {/* Top Brand Logo & Profile Badge Row */}
           <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-auto">
             {/* Horizontal Brand Logo Image */}
@@ -1543,6 +1548,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             )}
           </div>
 
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
           <div className="relative shrink-0" ref={funnelMenuRef}>
             <button
               onClick={() => setIsFunnelMenuOpen(prev => !prev)}
@@ -1582,9 +1590,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               </div>
             )}
           </div>
-        </div>
-        
-        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full xl:w-auto">
+
           {/* Compact Popover Date Range Selector */}
           <div className="relative shrink-0" ref={dateMenuRef}>
             <button
@@ -1740,9 +1746,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-normal text-white">
               Dashboard de performance
             </h1>
-            <p className="mt-2 text-sm sm:text-base text-slate-300 leading-relaxed">
-              {selectedProjectLabel}
-            </p>
+            <div className="mt-4 flex flex-wrap gap-2" aria-label={`Dashboards incluídos: ${selectedProjectLabel}`}>
+              {selectedProjectTags.map((project) => (
+                <span key={project.label} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-slate-200">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />
+                  {project.label}
+                </span>
+              ))}
+            </div>
           </div>
         </section>
         {fetchError && (

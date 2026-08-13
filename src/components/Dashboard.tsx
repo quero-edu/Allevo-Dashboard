@@ -163,7 +163,7 @@ function MetricCard({
               className: selected ? '!text-[#1A1A1A] stroke-[#1A1A1A]' : 'text-[#00FFBB]'
             }) : icon}
           </div>
-          <span className={cn("font-mono text-xs font-bold uppercase tracking-wider", isHero ? "text-zinc-200" : "text-zinc-400")}>{title}</span>
+          <span data-metric-title className={cn("font-sans uppercase", isHero ? "text-zinc-200" : "text-zinc-400")}>{title}</span>
         </div>
         {selected && (
           <div className="w-2.5 h-2.5 rounded-full bg-[#00FFBB] shadow-sm shadow-[#00FFBB]"></div>
@@ -172,15 +172,15 @@ function MetricCard({
 
       {/* MIDDLE SECTION: BIG VALUE + SUBTEXT */}
       <div className="mb-1">
-        <h3 className={cn("font-mono tabular-nums text-2xl lg:text-[1.7rem] font-black mb-1 tracking-normal transition-colors", valueColor || (isHero ? "text-white" : "text-white"))}>{value}</h3>
-        <p className="text-[11px] text-zinc-400 font-normal leading-tight">{subtext}</p>
+        <h3 data-metric-value className={cn("font-sans tabular-nums mb-1 transition-colors", valueColor || (isHero ? "text-white" : "text-white"))}>{value}</h3>
+        <p data-metric-subtext className="text-zinc-400 font-normal">{subtext}</p>
       </div>
 
       {/* COMPARISON BADGE */}
       {comparison && (
-        <div className="mt-2.5 pt-2 border-t border-[#262626] flex items-center justify-between gap-1.5 text-[11px]">
+        <div data-metric-comparison className="mt-3 pt-2.5 border-t border-[#262626] flex items-center justify-between gap-2">
           <div className={cn(
-            "inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] font-mono font-bold text-[10px] tracking-wide shrink-0",
+            "inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] font-sans font-bold text-xs tracking-wide shrink-0",
             comparison.isGood 
               ? "bg-[#00FFBB]/10 text-[#00FFBB] border border-[#00FFBB]/20"
               : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
@@ -196,12 +196,12 @@ function MetricCard({
           </div>
 
           <div 
-            className="font-mono text-[10px] text-zinc-400 font-medium truncate text-right flex items-center gap-1 justify-end min-w-0"
+            className="font-sans text-xs text-zinc-400 font-medium truncate text-right flex items-center gap-1 justify-end min-w-0"
             title={comparison.prevFormatted ? `Valor no período anterior: ${comparison.prevFormatted}` : undefined}
           >
             <span className="truncate">{comparisonLabel || 'vs. anterior'}</span>
             {comparison.prevFormatted && (
-              <span className="text-zinc-200 font-bold bg-[#242424] px-1.5 py-0.5 rounded-[4px] border border-[#262626] shrink-0 text-[10px]">
+              <span className="text-zinc-200 font-bold bg-[#242424] px-1.5 py-0.5 rounded-[4px] border border-[#262626] shrink-0 text-xs">
                 ({comparison.prevFormatted})
               </span>
             )}
@@ -1432,7 +1432,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               <img 
                 src="/allevotech-logo.svg" 
                 alt="AllevoTech" 
-                className="h-8 sm:h-9 w-auto object-contain hover:opacity-90 transition-opacity" 
+                className="h-9 sm:h-10 w-auto object-contain hover:opacity-90 transition-opacity"
               />
             </div>
 
@@ -1893,10 +1893,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 {/* TOP ROW: HERO METRICS HIGHLIGHTED */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-black uppercase tracking-widest text-[#00FFBB] flex items-center gap-1.5">
+                    <span className="text-sm font-bold uppercase tracking-[0.08em] text-[#00FFBB] flex items-center gap-1.5">
                       <Zap size={14} className="fill-[#00FFBB]" /> Métricas Chave (Top Performance)
                     </span>
-                    <span className="text-[11px] text-zinc-400 font-medium hidden sm:inline">Clique em uma métrica para destacar no gráfico</span>
+                    <span className="text-sm text-zinc-400 font-medium hidden sm:inline">Clique em uma métrica para destacar no gráfico</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -1957,7 +1957,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
                 {/* SECOND ROW: SECONDARY METRICS */}
                 <div>
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 mb-3 block">
+                  <span className="text-sm font-bold uppercase tracking-[0.08em] text-zinc-400 mb-3 block">
                     Outras Métricas Operacionais
                   </span>
                   

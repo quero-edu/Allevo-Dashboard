@@ -29,12 +29,15 @@
       radial-gradient(circle at 85% 12%, rgba(102, 190, 255, 0.12), transparent 26rem),
       #0F1115;
     color: #FFFFFF;
-    font-family: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     letter-spacing: 0;
+    font-optical-sizing: auto;
+    font-variant-numeric: tabular-nums;
   }
 
   code, kbd, samp, pre, .font-mono {
-    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -206,4 +209,33 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .metric-card:hover {
   border-color: rgba(62, 232, 181, 0.32);
   transform: translateY(-1px);
+}
+
+/* Typography roles: readable operational labels, strong values, stable numeric scanning. */
+.dashboard-shell .font-mono {
+  letter-spacing: 0.01em;
+}
+
+.metric-card [data-metric-title] {
+  font-size: 0.875rem;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  line-height: 1.25;
+}
+
+.metric-card [data-metric-value] {
+  font-size: clamp(2rem, 2.25vw, 2.625rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.metric-card [data-metric-subtext] {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.metric-card [data-metric-comparison] {
+  font-size: 0.8125rem;
+  line-height: 1.25;
 }

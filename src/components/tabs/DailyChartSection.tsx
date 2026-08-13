@@ -38,13 +38,16 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   formatCurrency,
   formatNumber
 }) => {
+  const hasCurrencyMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type === 'currency');
+  const hasNumberMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type === 'number');
+
   return (
     <div className="bg-[#151922]/95 rounded-[8px] border border-white/10 p-5 sm:p-6 shadow-[0_18px_52px_rgba(0,0,0,0.22)]">
       <div className="flex flex-col gap-4 mb-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-bold text-white font-mono">Histórico diário</h3>
-            <p className="mt-1 text-xs text-zinc-400 font-medium">Selecione até duas métricas acima para comparar.</p>
+            <p className="mt-1 text-xs text-zinc-400 font-medium">Selecione até cinco métricas para comparar.</p>
           </div>
           <button
             onClick={() => setSelectedMetrics([])}
@@ -100,24 +103,23 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
             <XAxis dataKey="date" tick={{ fill: '#A3A3A3', fontSize: 11, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#262626' }} dy={10} />
             
-            {selectedMetrics.length > 0 && (
+            {hasCurrencyMetric && (
               <YAxis 
-                yAxisId="left" 
+                yAxisId="currency"
                 orientation="left"
                 tick={{ fill: '#A3A3A3', fontSize: 11, fontFamily: 'monospace' }} 
                 tickLine={false} 
                 axisLine={false} 
-                tickFormatter={METRIC_CONFIG[selectedMetrics[0]]?.type === 'currency' ? (val) => `R$ ${val}` : undefined} 
+                tickFormatter={(val) => `R$ ${val}`}
               />
             )}
-            {selectedMetrics.length > 1 && (
+            {hasNumberMetric && (
               <YAxis 
-                yAxisId="right" 
+                yAxisId="number"
                 orientation="right"
                 tick={{ fill: '#A3A3A3', fontSize: 11, fontFamily: 'monospace' }} 
                 tickLine={false} 
                 axisLine={false} 
-                tickFormatter={METRIC_CONFIG[selectedMetrics[1]]?.type === 'currency' ? (val) => `R$ ${val}` : undefined}
               />
             )}
             
@@ -151,7 +153,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
             {selectedMetrics.map((key, index) => {
               const config = METRIC_CONFIG[key];
               if (!config) return null;
-              const yAxisId = index === 0 ? 'left' : 'right';
+              const yAxisId = config.type === 'currency' ? 'currency' : 'number';
 
               return (
                 <React.Fragment key={key}>
@@ -170,7 +172,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                       type="monotone" 
                       dataKey={key} 
                       name={config.label} 
-                      stroke={config.color} 
+                      stroke={config.color}
                       strokeWidth={2.5} 
                       dot={{ r: 3.5, strokeWidth: 1.5, fill: '#121212' }} 
                       activeDot={{ r: 5 }} 
@@ -184,7 +186,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                       type="monotone" 
                       dataKey={`${key}_mm7`} 
                       name={`MM 7D (${config.label})`} 
-                      stroke={index === 0 ? '#38BDF8' : '#F59E0B'} 
+                      stroke={config.color}
                       strokeWidth={2} 
                       strokeDasharray="5 4" 
                       dot={false} 

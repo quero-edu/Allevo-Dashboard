@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Calendar, RotateCcw, LayoutDashboard, Layers, Disc, MousePointer2, Package, 
   DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, ChevronRight, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X,
-  ShieldCheck, LogOut, UserCheck, Shield, Maximize2
+  ShieldCheck, LogOut, UserCheck, Shield, Maximize2, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { fetchSpreadsheetData } from '../services/api';
 import { cn } from '../lib/utils';
@@ -112,20 +112,13 @@ function MetricCard({
   comparison, comparisonLabel, onClick
 }: MetricCardProps) {
   return (
-    <div
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
+    <button
+      type="button"
       onClick={onClick}
-      onKeyDown={(event) => {
-        if (onClick && (event.key === 'Enter' || event.key === ' ')) {
-          event.preventDefault();
-          onClick();
-        }
-      }}
       aria-pressed={selected}
       aria-label={`${title}: ${value}. ${selected ? 'Remover do gráfico' : 'Adicionar ao gráfico'}`}
       className={cn(
-        "metric-card rounded-[8px] border p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden text-left w-full",
+        "metric-card appearance-none rounded-[8px] border p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden text-left w-full",
         isHero 
           ? "ring-1 ring-[#00FFBB]/15 hover:border-[#00FFBB]/50" 
           : "hover:border-slate-500/40",
@@ -209,7 +202,7 @@ function MetricCard({
         </div>
       )}
 
-    </div>
+    </button>
   );
 }
 
@@ -250,6 +243,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const [activeTab, setActiveTab] = useState('Geral');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [dateRange, setDateRange] = useState('7D');
   const [comparePrevious, setComparePrevious] = useState(true);
   const [showMovingAverage, setShowMovingAverage] = useState(false);
@@ -1338,7 +1332,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       if (prev.includes(id)) {
         return prev.filter(m => m !== id);
       }
-      return [...prev.slice(-1), id];
+      return prev.length < 5 ? [...prev, id] : prev;
     });
   };
 
@@ -1435,14 +1429,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
   const comparisonLabel = getPreviousPeriodLabel(dateRange, customDates);
   const comp = metricsData.comparison || {};
-
-  const selectedProjectLabel = selectedProject === '1'
-    ? 'Livro Estratégia em Ação'
-    : selectedProject === '2'
-      ? 'Livro Gestão de Projetos com IA'
-      : 'Consolidado dos dois funis';
-
-  const selectedProjectTags = [
+  const selectedFunnelTags = [
     selectedFunnels.strategy && { label: 'Livro Estratégia em Ação', color: '#00FFBB' },
     selectedFunnels.management && { label: 'Livro Gestão de Projetos com IA', color: '#66BEFF' }
   ].filter(Boolean) as { label: string; color: string }[];
@@ -1455,12 +1442,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           {/* Top Brand Logo & Profile Badge Row */}
           <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-auto">
             {/* Horizontal Brand Logo Image */}
-            <div className="flex items-center cursor-pointer shrink-0 select-none">
+            <div className="flex flex-col items-start cursor-pointer shrink-0 select-none">
               <img 
                 src="/allevotech-logo.webp"
                 alt="AllevoTech" 
                 className="h-9 sm:h-10 w-auto object-contain hover:opacity-90 transition-opacity"
               />
+              <span className="mt-0.5 pl-0.5 text-[11px] font-semibold text-zinc-400">Dashboard de performance</span>
             </div>
 
             {/* Corporate Profile & Access Menu (Positioned beside AllevoTech Logo) */}
@@ -1723,39 +1711,59 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               data-action-ink="true"
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
               style={ALLEVO_ACTION_STYLE}
-              className="allevo-action btn-primary-green px-3.5 py-2 bg-[#00FFBB] !text-[#1A1A1A] rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center gap-1.5 font-mono font-black text-xs whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
+              aria-label="Sincronizar planilha"
+              className="allevo-action btn-primary-green w-10 h-10 bg-[#00FFBB] !text-[#1A1A1A] rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center justify-center shrink-0 active:scale-95 cursor-pointer"
             >
-              <RotateCcw size={14} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A] shrink-0", loading && "animate-spin")} />
-              <span style={ALLEVO_ACTION_TEXT_STYLE} className="!text-[#1A1A1A] font-black">Sync</span>
+              <RotateCcw size={18} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A]", loading && "animate-spin")} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-[1440px] mx-auto p-4 sm:p-6 lg:p-8">
-        <section className="executive-panel rounded-[8px] p-5 sm:p-6 lg:p-7 mb-6">
-          <div className="max-w-3xl">
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <span className="px-2.5 py-1 rounded-[6px] bg-[#00FFBB]/12 border border-[#00FFBB]/20 text-[#00FFBB] text-[10px] font-mono font-black uppercase tracking-widest">
-                Tráfego Pago
-              </span>
-              <span className="px-2.5 py-1 rounded-[6px] bg-[#66BEFF]/10 border border-[#66BEFF]/20 text-[#A8D9FF] text-[10px] font-mono font-bold uppercase tracking-widest">
-                {getLabelForDateRange(dateRange, customDates)}
-              </span>
+      <main className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex items-start gap-6">
+          <aside className={cn("hidden sm:block sticky top-24 shrink-0 transition-[width] duration-200", isSidebarCollapsed ? "w-[58px]" : "w-56")}>
+            <div className="bg-[#151922] border border-white/10 rounded-[8px] p-2 shadow-[0_12px_34px_rgba(0,0,0,0.18)]">
+              <div className={cn("flex items-center mb-2", isSidebarCollapsed ? "justify-center" : "justify-between px-2") }>
+                {!isSidebarCollapsed && <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">Navegação</span>}
+                <button
+                  onClick={() => setIsSidebarCollapsed(prev => !prev)}
+                  className="w-8 h-8 flex items-center justify-center rounded-[6px] text-zinc-400 hover:text-[#00FFBB] hover:bg-white/[0.06] transition-colors"
+                  title={isSidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+                  aria-label={isSidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+                >
+                  {isSidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+                </button>
+              </div>
+              <nav className="space-y-1" aria-label="Navegação principal">
+                {tabs.map(tab => {
+                  const isActive = activeTab === tab.name;
+                  const TabIcon = tab.icon;
+                  return (
+                    <button
+                      key={tab.name}
+                      data-active-tab={isActive ? "true" : undefined}
+                      data-active-green={isActive ? "true" : undefined}
+                      data-action-ink={isActive ? "true" : undefined}
+                      onClick={() => setActiveTab(tab.name)}
+                      style={isActive ? ALLEVO_ACTION_STYLE : undefined}
+                      title={isSidebarCollapsed ? tab.name : undefined}
+                      className={cn(
+                        "w-full flex items-center rounded-[6px] text-sm font-semibold transition-colors",
+                        isSidebarCollapsed ? "justify-center h-10" : "gap-3 px-3 py-2.5",
+                        isActive ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] font-black" : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
+                      )}
+                    >
+                      <TabIcon size={18} className="shrink-0" />
+                      {!isSidebarCollapsed && <span>{tab.name}</span>}
+                    </button>
+                  );
+                })}
+              </nav>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-normal text-white">
-              Dashboard de performance
-            </h1>
-            <div className="mt-4 flex flex-wrap gap-2" aria-label={`Dashboards incluídos: ${selectedProjectLabel}`}>
-              {selectedProjectTags.map((project) => (
-                <span key={project.label} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-slate-200">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />
-                  {project.label}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
+          </aside>
+
+          <section className="min-w-0 flex-1">
         {fetchError && (
           <div className="mb-8 p-6 bg-[#1C1C1C] border border-[#00FFBB]/50 rounded-[8px] shadow-lg text-zinc-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-start gap-4">
@@ -1804,10 +1812,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           </div>
         )}
         
-        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 mb-8">
-          <div className="flex flex-col gap-4 w-full md:w-auto">
-            {/* Mobile View Navigation Dropdown (< md) */}
-            <div className="md:hidden w-full relative" ref={tabMenuRef}>
+            <div className="sm:hidden w-full relative mb-6" ref={tabMenuRef}>
               <button
                 onClick={() => setIsTabMenuOpen(prev => !prev)}
                 className="w-full flex items-center justify-between px-4 py-3 bg-[#1C1C1C] border border-[#262626] hover:border-[#383838] rounded-[8px] text-white font-bold text-sm shadow-lg focus:outline-none transition-all"
@@ -1869,42 +1874,6 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               )}
             </div>
 
-            {/* Desktop View Navigation Tabs (>= md) */}
-            <div className="hidden md:flex flex-wrap bg-[#151922] p-1 rounded-[8px] border border-white/10 shadow-[0_12px_34px_rgba(0,0,0,0.18)] gap-1.5 w-fit items-center">
-              {tabs.map(tab => {
-                const isActive = activeTab === tab.name;
-                const TabIcon = tab.icon;
-                return (
-                  <button
-                    key={tab.name}
-                    data-active-tab={isActive ? "true" : undefined}
-                    data-active-green={isActive ? "true" : undefined}
-                    data-action-ink={isActive ? "true" : undefined}
-                    onClick={() => setActiveTab(tab.name)}
-                    style={isActive ? ALLEVO_ACTION_STYLE : undefined}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-xs font-mono font-bold transition-all cursor-pointer",
-                      isActive 
-                        ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] shadow-md shadow-[#00FFBB]/20 font-black"
-                        : "text-zinc-400 hover:bg-[#242424] hover:text-zinc-100"
-                    )}
-                  >
-                    <TabIcon 
-                      size={18} 
-                      color={isActive ? ALLEVO_ACTION_INK : undefined}
-                      stroke={isActive ? ALLEVO_ACTION_INK : "currentColor"}
-                      strokeWidth={isActive ? 2.5 : 2}
-                      style={isActive ? ALLEVO_ACTION_ICON_STYLE : undefined}
-                      className={cn("shrink-0", isActive ? "!text-[#1A1A1A] stroke-[#1A1A1A]" : "")}
-                    />
-                    <span style={isActive ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={isActive ? "!text-[#1A1A1A] font-black" : ""}>{tab.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
         {loading && !data ? (
           <div className="flex flex-col justify-center items-center h-64 text-zinc-400 gap-4">
             <RotateCcw size={32} className="animate-spin text-[#00FFBB]" />
@@ -1916,9 +1885,18 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 {/* TOP ROW: HERO METRICS HIGHLIGHTED */}
                 <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-5" aria-label="Funis selecionados">
+                    <span className="text-xs font-semibold text-zinc-500">Funis</span>
+                    {selectedFunnelTags.map((funnel) => (
+                      <span key={funnel.label} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-zinc-200">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: funnel.color }} />
+                        {funnel.label}
+                      </span>
+                    ))}
+                  </div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-bold uppercase tracking-[0.08em] text-[#00FFBB] flex items-center gap-1.5">
-                      <Zap size={14} className="fill-[#00FFBB]" /> Métricas Chave (Top Performance)
+                      <Zap size={14} className="fill-[#00FFBB]" /> Principais KPIs
                     </span>
                     <span className="text-sm text-zinc-400 font-medium hidden sm:inline">Clique em uma métrica para destacar no gráfico</span>
                   </div>
@@ -2127,6 +2105,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               Sincronizado via Google Sheets às {lastUpdated.toLocaleTimeString()}
             </div>
           )}
+        </div>
+          </section>
         </div>
       </main>
 

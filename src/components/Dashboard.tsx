@@ -1430,7 +1430,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             {/* Horizontal Brand Logo Image */}
             <div className="flex items-center cursor-pointer shrink-0 select-none">
               <img 
-                src="/allevotech-logo.svg" 
+                src="/allevotech-logo.webp"
                 alt="AllevoTech" 
                 className="h-9 sm:h-10 w-auto object-contain hover:opacity-90 transition-opacity"
               />

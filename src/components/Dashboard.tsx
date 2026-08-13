@@ -277,6 +277,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const [isDateMenuOpen, setIsDateMenuOpen] = useState(false);
   const dateMenuRef = useRef<HTMLDivElement>(null);
 
+  const [isFunnelMenuOpen, setIsFunnelMenuOpen] = useState(false);
+  const funnelMenuRef = useRef<HTMLDivElement>(null);
+
   const [isTabMenuOpen, setIsTabMenuOpen] = useState(false);
   const tabMenuRef = useRef<HTMLDivElement>(null);
 
@@ -291,6 +294,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       }
       if (dateMenuRef.current && !dateMenuRef.current.contains(event.target as Node)) {
         setIsDateMenuOpen(false);
+      }
+      if (funnelMenuRef.current && !funnelMenuRef.current.contains(event.target as Node)) {
+        setIsFunnelMenuOpen(false);
       }
       if (tabMenuRef.current && !tabMenuRef.current.contains(event.target as Node)) {
         setIsTabMenuOpen(false);
@@ -322,6 +328,22 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
   const handleSelectProject = (proj: '1' | '2' | 'all') => {
     setSelectedProject(proj);
+  };
+
+  const selectedFunnels = {
+    strategy: selectedProject !== '2',
+    management: selectedProject !== '1'
+  };
+
+  const toggleFunnel = (funnel: 'strategy' | 'management') => {
+    const next = {
+      ...selectedFunnels,
+      [funnel]: !selectedFunnels[funnel]
+    };
+
+    if (!next.strategy && !next.management) return;
+
+    handleSelectProject(next.strategy && next.management ? 'all' : next.strategy ? '1' : '2');
   };
 
   useEffect(() => {
@@ -1521,53 +1543,44 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             )}
           </div>
 
-          {/* Project Switcher Tabs */}
-          <div className="flex bg-white/[0.045] p-1 rounded-[8px] border border-white/10 gap-1 max-w-full overflow-x-auto scrollbar-none shrink-0" aria-label="Selecionar projeto" role="group">
+          <div className="relative shrink-0" ref={funnelMenuRef}>
             <button
-              onClick={() => handleSelectProject('1')}
-              data-active-green={selectedProject === '1' ? "true" : undefined}
-              data-action-ink={selectedProject === '1' ? "true" : undefined}
-              style={selectedProject === '1' ? ALLEVO_ACTION_STYLE : undefined}
-              className={cn(
-                "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
-                selectedProject === '1'
-                  ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
-              )}
+              onClick={() => setIsFunnelMenuOpen(prev => !prev)}
+              aria-expanded={isFunnelMenuOpen}
+              aria-haspopup="menu"
+              className="flex items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-sm font-semibold focus:outline-none shadow-sm"
             >
-              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === '1' ? "allevo-action-dot bg-[#1A1A1A]" : "bg-[#00FFBB]")}></span>
-              <span style={selectedProject === '1' ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={selectedProject === '1' ? "!text-[#1A1A1A] font-black" : ""}>Livro Estratégia em Ação</span>
+              <Layers size={16} className="text-[#00FFBB]" />
+              <span className="text-zinc-400">Funis</span>
+              <span className="text-zinc-100 hidden sm:inline">{selectedProject === 'all' ? 'Todos' : selectedProject === '1' ? 'Estratégia em Ação' : 'Gestão de Projetos'}</span>
+              <ChevronDown size={15} className={cn("text-zinc-400 transition-transform", isFunnelMenuOpen && "rotate-180 text-[#00FFBB]")} />
             </button>
-            <button
-              onClick={() => handleSelectProject('2')}
-              data-active-green={selectedProject === '2' ? "true" : undefined}
-              data-action-ink={selectedProject === '2' ? "true" : undefined}
-              style={selectedProject === '2' ? ALLEVO_ACTION_STYLE : undefined}
-              className={cn(
-                "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
-                selectedProject === '2'
-                  ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
-              )}
-            >
-              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === '2' ? "allevo-action-dot bg-[#1A1A1A]" : "bg-[#66BEFF]")}></span>
-              <span style={selectedProject === '2' ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={selectedProject === '2' ? "!text-[#1A1A1A] font-black" : ""}>Livro Gestão de Projetos com IA</span>
-            </button>
-            <button
-              onClick={() => handleSelectProject('all')}
-              data-active-green={selectedProject === 'all' ? "true" : undefined}
-              data-action-ink={selectedProject === 'all' ? "true" : undefined}
-              style={selectedProject === 'all' ? ALLEVO_ACTION_STYLE : undefined}
-              className={cn(
-                "px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-mono font-bold rounded-[8px] transition-all flex items-center gap-2 whitespace-nowrap shrink-0",
-                selectedProject === 'all'
-                  ? "allevo-action btn-primary-green green-solid bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-[#2E2E2E]"
-              )}
-            >
-              <span className={cn("w-2 h-2 rounded-full shrink-0", selectedProject === 'all' ? "allevo-action-dot bg-[#1A1A1A]" : "bg-[#F59E0B]")}></span>
-              <span style={selectedProject === 'all' ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={selectedProject === 'all' ? "!text-[#1A1A1A] font-black" : ""}>Consolidado (Ambos os Funis)</span>
-            </button>
+
+            {isFunnelMenuOpen && (
+              <div role="menu" className="absolute left-0 top-full mt-2 w-80 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-50">
+                <p className="px-2.5 py-2 text-xs text-zinc-400">Selecione os funis para consolidar a análise.</p>
+                <button
+                  role="menuitemcheckbox"
+                  aria-checked={selectedFunnels.strategy}
+                  onClick={() => toggleFunnel('strategy')}
+                  className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-[6px] hover:bg-white/[0.06] text-left transition-colors"
+                >
+                  <span className={cn("w-4 h-4 border rounded-[4px] flex items-center justify-center shrink-0", selectedFunnels.strategy ? "bg-[#00FFBB] border-[#00FFBB] text-[#1A1A1A]" : "border-zinc-500")}>{selectedFunnels.strategy && <Check size={12} strokeWidth={3} />}</span>
+                  <span className="w-2 h-2 rounded-full bg-[#00FFBB] shrink-0" />
+                  <span className="text-sm font-medium text-zinc-100">Livro Estratégia em Ação</span>
+                </button>
+                <button
+                  role="menuitemcheckbox"
+                  aria-checked={selectedFunnels.management}
+                  onClick={() => toggleFunnel('management')}
+                  className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-[6px] hover:bg-white/[0.06] text-left transition-colors"
+                >
+                  <span className={cn("w-4 h-4 border rounded-[4px] flex items-center justify-center shrink-0", selectedFunnels.management ? "bg-[#00FFBB] border-[#00FFBB] text-[#1A1A1A]" : "border-zinc-500")}>{selectedFunnels.management && <Check size={12} strokeWidth={3} />}</span>
+                  <span className="w-2 h-2 rounded-full bg-[#66BEFF] shrink-0" />
+                  <span className="text-sm font-medium text-zinc-100">Livro Gestão de Projetos com IA</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
         

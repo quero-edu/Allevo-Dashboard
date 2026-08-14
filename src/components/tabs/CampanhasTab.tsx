@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { SortableHeader } from '../ui/SortableHeader';
 
 interface CampanhasTabProps {
   sortedCampaigns: any[];
@@ -28,56 +29,31 @@ export const CampanhasTab: React.FC<CampanhasTabProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="bg-[#151922]/95 rounded-[8px] border border-white/10 shadow-[0_18px_52px_rgba(0,0,0,0.22)] overflow-hidden">
+      <div className="table-panel overflow-hidden">
         <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de campanhas. Deslize horizontalmente para ver todas as colunas.">
           <table className="w-full text-left text-sm whitespace-nowrap lg:whitespace-normal">
-            <thead className="bg-white/[0.045] border-b border-white/10 text-[#00FFBB] font-mono font-bold uppercase tracking-wider text-[11px]">
+            <thead className="table-heading font-mono font-bold uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="px-3.5 py-3.5 cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('name')}>
-                  Campanha / Conjunto {campaignSort.column === 'name' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('investimento')}>
-                  Gasto (+12%) {campaignSort.column === 'investimento' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('impressoes')}>
-                  Impressões {campaignSort.column === 'impressoes' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('cpm')}>
-                  CPM {campaignSort.column === 'cpm' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('cliques')}>
-                  Cliques {campaignSort.column === 'cliques' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('cpc')}>
-                  CPC {campaignSort.column === 'cpc' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('ctr')}>
-                  CTR {campaignSort.column === 'ctr' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('comprasTrafego')}>
-                  Livros Vendidos {campaignSort.column === 'comprasTrafego' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('cpa')}>
-                  CPA {campaignSort.column === 'cpa' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="px-3.5 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E] transition-colors" onClick={() => toggleCampaignSort('roas')}>
-                  ROAS {campaignSort.column === 'roas' && (campaignSort.direction === 'asc' ? '↑' : '↓')}
-                </th>
+                <SortableHeader column="name" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort}>Campanha / Conjunto</SortableHeader>
+                <SortableHeader column="investimento" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">Gasto</SortableHeader>
+                <SortableHeader column="impressoes" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">Impressões</SortableHeader>
+                <SortableHeader column="cpm" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">CPM</SortableHeader>
+                <SortableHeader column="cliques" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">Cliques</SortableHeader>
+                <SortableHeader column="cpc" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">CPC</SortableHeader>
+                <SortableHeader column="ctr" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">CTR</SortableHeader>
+                <SortableHeader column="comprasTrafego" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">Livros vendidos</SortableHeader>
+                <SortableHeader column="cpa" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">CPA</SortableHeader>
+                <SortableHeader column="roas" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">ROAS</SortableHeader>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#262626] text-zinc-300 font-mono text-xs">
               {sortedCampaigns.map((camp: any) => (
                 <React.Fragment key={camp.name}>
-                  <tr 
-                    className="hover:bg-white/[0.045] transition-colors cursor-pointer group bg-transparent"
-                    onClick={() => toggleCampaign(camp.name)}
-                  >
+                  <tr className="hover:bg-white/[0.045] transition-colors group bg-transparent">
                     <td className="px-3.5 py-3 font-sans font-bold text-zinc-100 flex items-center gap-2 max-w-[220px] xl:max-w-[320px]">
-                      {expandedCampaigns[camp.name] ? (
-                        <ChevronDown size={14} className="text-[#00FFBB] shrink-0" />
-                      ) : (
-                        <ChevronRight size={14} className="text-zinc-500 group-hover:text-[#00FFBB] shrink-0" />
-                      )}
+                      <button type="button" onClick={() => toggleCampaign(camp.name)} aria-expanded={Boolean(expandedCampaigns[camp.name])} className="min-h-11 min-w-11 -my-2 inline-flex shrink-0 items-center justify-center rounded-[6px] text-[var(--text-subtle)] hover:bg-white/[0.06] hover:text-[var(--brand-strategy)]" aria-label={`${expandedCampaigns[camp.name] ? 'Recolher' : 'Expandir'} ${camp.name}`}>
+                        {expandedCampaigns[camp.name] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
                       <span className="truncate" title={camp.name}>{camp.name}</span>
                     </td>
                     <td className="px-3.5 py-3 text-right font-bold text-zinc-100">{formatCurrency(camp.investimento)}</td>
@@ -112,8 +88,9 @@ export const CampanhasTab: React.FC<CampanhasTabProps> = ({
               ))}
               {metricsCampaignsCount === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-zinc-500 font-sans font-medium">
-                    Nenhum dado encontrado para este período/filtro.
+                  <td colSpan={10} className="px-6 py-12 text-center font-sans">
+                    <p className="font-medium text-zinc-400">Nenhuma campanha encontrada neste período.</p>
+                    <p className="mt-1 text-xs text-zinc-500">Altere o período ou sincronize a planilha novamente.</p>
                   </td>
                 </tr>
               )}

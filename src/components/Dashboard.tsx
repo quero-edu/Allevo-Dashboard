@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Calendar, RotateCcw, LayoutDashboard, Layers, Disc, MousePointer2, Package, 
-  DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, ChevronRight, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X,
+  DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, ChevronRight, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X, Pencil, Trash2,
   ShieldCheck, LogOut, UserCheck, Shield, Maximize2, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
-import { fetchSpreadsheetData } from '../services/api';
+import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchDashboardFunnels, fetchSpreadsheetData, updateDashboardFunnel } from '../services/api';
 import { cn } from '../lib/utils';
 import { filterByDate, buildDateFilter, buildPreviousDateFilter, getPreviousPeriodLabel, calculateComparison, parseValue, formatCurrency, formatPercent, formatNumber, parseUtcToUtcMinus3 } from '../lib/metrics';
 import { AuthUser } from './AuthGate';
@@ -31,6 +31,11 @@ const ALLEVO_ACTION_ICON_STYLE: React.CSSProperties = {
   color: ALLEVO_ACTION_INK,
   stroke: ALLEVO_ACTION_INK
 };
+
+const DEFAULT_DASHBOARD_FUNNELS: DashboardFunnel[] = [
+  { id: 'estrategia', name: 'Livro Estratégia em Ação', sheetId: '', color: '#00FFBB', builtIn: true },
+  { id: 'gestao-ia', name: 'Livro Gestão de Projetos com IA', sheetId: '', color: '#66BEFF', builtIn: true }
+];
 
 function PanelLoadingState() {
   return (
@@ -63,19 +68,7 @@ function getCreativeThumbnail(creativeName: string, customImage?: string) {
     }
     return trimmed;
   }
-  const mockImages = [
-    "https://images.unsplash.com/photo-1542744094-3a31b272c490?w=600&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=600&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=600&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1533750349088-cd871a92f312?w=600&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=600&auto=format&fit=crop&q=80",
-  ];
-  let hash = 0;
-  for (let i = 0; i < (creativeName || '').length; i++) {
-    hash = creativeName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return mockImages[Math.abs(hash) % mockImages.length];
+  return '';
 }
 
 const METRIC_CONFIG: Record<string, { label: string, color: string, type: 'currency' | 'number' | 'percent', renderType: 'bar' | 'line' }> = {
@@ -270,8 +263,18 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [selectedSourceIndices, setSelectedSourceIndices] = useState<number[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['investimentoTotal', 'vendasTrafego']);
-  const [selectedProject, setSelectedProject] = useState<'1' | '2' | 'all'>('1');
+  const [funnels, setFunnels] = useState<DashboardFunnel[]>(DEFAULT_DASHBOARD_FUNNELS);
+  const [selectedFunnelIds, setSelectedFunnelIds] = useState<string[]>(['estrategia']);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isAddFunnelConfirmOpen, setIsAddFunnelConfirmOpen] = useState(false);
+  const [isAddFunnelModalOpen, setIsAddFunnelModalOpen] = useState(false);
+  const [newFunnelName, setNewFunnelName] = useState('');
+  const [newFunnelUrl, setNewFunnelUrl] = useState('');
+  const [newFunnelError, setNewFunnelError] = useState<string | null>(null);
+  const [isCreatingFunnel, setIsCreatingFunnel] = useState(false);
+  const [editingFunnel, setEditingFunnel] = useState<DashboardFunnel | null>(null);
+  const [funnelPendingDelete, setFunnelPendingDelete] = useState<DashboardFunnel | null>(null);
+  const [isDeletingFunnel, setIsDeletingFunnel] = useState(false);
   
   // Profile dropdown menu state, Date picker popover state, & Mobile Nav Tab Dropdown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -285,6 +288,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
   const [isTabMenuOpen, setIsTabMenuOpen] = useState(false);
   const tabMenuRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLElement>(null);
 
   // Lightbox Zoom State
   const [activeLightboxImage, setActiveLightboxImage] = useState<{ name: string; url: string; link?: string; stats?: any } | null>(null);
@@ -309,7 +313,48 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadData = async (proj?: '1' | '2' | 'all') => {
+  useEffect(() => {
+    const isModalOpen = isAddFunnelConfirmOpen || isAddFunnelModalOpen || Boolean(funnelPendingDelete);
+    if (!isModalOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusableSelector = 'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusFirstControl = () => {
+      modalRef.current?.querySelector<HTMLElement>(focusableSelector)?.focus();
+    };
+    const frame = window.requestAnimationFrame(focusFirstControl);
+
+    const handleModalKeys = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (isAddFunnelConfirmOpen) setIsAddFunnelConfirmOpen(false);
+        if (isAddFunnelModalOpen) closeFunnelEditor();
+        if (funnelPendingDelete && !isDeletingFunnel) setFunnelPendingDelete(null);
+        return;
+      }
+      if (event.key !== 'Tab' || !modalRef.current) return;
+      const controls = Array.from(modalRef.current.querySelectorAll(focusableSelector)) as HTMLElement[];
+      if (controls.length === 0) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleModalKeys);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleModalKeys);
+      previouslyFocused?.focus();
+    };
+  }, [isAddFunnelConfirmOpen, isAddFunnelModalOpen, funnelPendingDelete, isCreatingFunnel, isDeletingFunnel]);
+
+  const selectedProject = selectedFunnelIds.join(',');
+  const loadData = async (proj?: string) => {
     const targetProj = proj || selectedProject;
     const loadId = activeLoadId.current + 1;
     activeLoadId.current = loadId;
@@ -329,24 +374,89 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     }
   };
 
-  const handleSelectProject = (proj: '1' | '2' | 'all') => {
-    setSelectedProject(proj);
+  const toggleFunnel = (funnelId: string) => {
+    setSelectedFunnelIds((current) => {
+      if (current.includes(funnelId)) {
+        return current.length === 1 ? current : current.filter((id) => id !== funnelId);
+      }
+      return [...current, funnelId];
+    });
   };
 
-  const selectedFunnels = {
-    strategy: selectedProject !== '2',
-    management: selectedProject !== '1'
+  useEffect(() => {
+    fetchDashboardFunnels()
+      .then((items) => {
+        if (items.length === 0) {
+          throw new Error('O catálogo de funis retornou vazio.');
+        }
+        setFunnels(items);
+        setSelectedFunnelIds((current) => {
+          const available = current.filter((id) => items.some((funnel) => funnel.id === id));
+          return available.length > 0 ? available : items.slice(0, 1).map((funnel) => funnel.id);
+        });
+      })
+      .catch((error) => {
+        console.warn('Não foi possível carregar o catálogo de funis; mantendo os funis-base:', error);
+        setFunnels((current) => current.length > 0 ? current : DEFAULT_DASHBOARD_FUNNELS);
+        setSelectedFunnelIds((current) => current.length > 0 ? current : ['estrategia']);
+      });
+  }, []);
+
+  const openFunnelEditor = (funnel: DashboardFunnel) => {
+    setEditingFunnel(funnel);
+    setNewFunnelName(funnel.name);
+    setNewFunnelUrl(`https://docs.google.com/spreadsheets/d/${funnel.sheetId}/edit`);
+    setNewFunnelError(null);
+    setIsFunnelMenuOpen(false);
+    setIsAddFunnelModalOpen(true);
   };
 
-  const toggleFunnel = (funnel: 'strategy' | 'management') => {
-    const next = {
-      ...selectedFunnels,
-      [funnel]: !selectedFunnels[funnel]
-    };
+  const closeFunnelEditor = (force = false) => {
+    if (isCreatingFunnel && !force) return;
+    setIsAddFunnelModalOpen(false);
+    setEditingFunnel(null);
+    setNewFunnelName('');
+    setNewFunnelUrl('');
+    setNewFunnelError(null);
+  };
 
-    if (!next.strategy && !next.management) return;
+  const handleSaveFunnel = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setNewFunnelError(null);
+    setIsCreatingFunnel(true);
+    try {
+      const funnel = editingFunnel
+        ? await updateDashboardFunnel(editingFunnel.id, newFunnelName, newFunnelUrl)
+        : await createDashboardFunnel(newFunnelName, newFunnelUrl);
+      setFunnels((current) => editingFunnel
+        ? current.map((item) => item.id === funnel.id ? funnel : item)
+        : [...current, funnel]);
+      setSelectedFunnelIds((current) => current.includes(funnel.id) ? current : [...current, funnel.id]);
+      closeFunnelEditor(true);
+      setIsFunnelMenuOpen(false);
+    } catch (error: any) {
+      setNewFunnelError(error.message || 'Não foi possível salvar o funil.');
+    } finally {
+      setIsCreatingFunnel(false);
+    }
+  };
 
-    handleSelectProject(next.strategy && next.management ? 'all' : next.strategy ? '1' : '2');
+  const handleDeleteFunnel = async () => {
+    if (!funnelPendingDelete) return;
+    setIsDeletingFunnel(true);
+    try {
+      await deleteDashboardFunnel(funnelPendingDelete.id);
+      setFunnels((current) => current.filter((item) => item.id !== funnelPendingDelete.id));
+      setSelectedFunnelIds((current) => current.filter((id) => id !== funnelPendingDelete.id));
+      setFunnelPendingDelete(null);
+      setIsFunnelMenuOpen(false);
+    } catch (error: any) {
+      setNewFunnelError(error.message || 'Não foi possível remover o funil.');
+      setIsAddFunnelModalOpen(true);
+      setFunnelPendingDelete(null);
+    } finally {
+      setIsDeletingFunnel(false);
+    }
   };
 
   useEffect(() => {
@@ -1152,11 +1262,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       dayData.faturamentoTotal += parseValue(valStr);
       dayData.vendasIngressos += 1;
       const product = String(row['Produto Principal'] || row['Produto'] || 'Produto não identificado').trim() || 'Produto não identificado';
-      const funnel = row['Funil'] === 'Gestão IA'
-        ? 'Gestão IA'
-        : row['Funil'] === 'Estratégia'
-          ? 'Estratégia'
-          : 'Sem origem';
+      // New funnels retain their full name in the source rows. Normalize the two
+      // built-in funnels so their product series keep their established palettes.
+      const funnelSource = String(row['Funil'] || row['funil'] || '').trim();
+      const funnel = /estrat(é|e)gia/i.test(funnelSource)
+        ? 'Estratégia'
+        : /gest(ã|a)o|projetos\s+com\s+ia/i.test(funnelSource)
+          ? 'Gestão IA'
+          : funnelSource || 'Sem origem';
       const productLabel = `${funnel}::main::${product}`;
       dayData.productSales[productLabel] = (dayData.productSales[productLabel] || 0) + 1;
       const orderBump = String(row['Order Bump'] || '').trim();
@@ -1465,10 +1578,18 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
   const comparisonLabel = getPreviousPeriodLabel(dateRange, customDates);
   const comp = metricsData.comparison || {};
-  const selectedFunnelTags = [
-    selectedFunnels.strategy && { label: 'Livro Estratégia em Ação', color: '#00FFBB' },
-    selectedFunnels.management && { label: 'Livro Gestão de Projetos com IA', color: '#66BEFF' }
-  ].filter(Boolean) as { label: string; color: string }[];
+  const selectedFunnelTags = funnels.filter((funnel) => selectedFunnelIds.includes(funnel.id));
+  const sourceWarnings = useMemo(() => {
+    const diagnostics = Array.isArray(data?.diagnostics) ? data.diagnostics : [];
+    return diagnostics.flatMap((item: any) => {
+      const warnings: string[] = [];
+      if (item.sourceError) warnings.push(`${item.funnelName}: Meta e Compradores não puderam ser lidos.`);
+      else if (!item.metaRows || !item.buyerRows) warnings.push(`${item.funnelName}: Meta ou Compradores está sem dados.`);
+      if (item.creativeError) warnings.push(`${item.funnelName}: Criativos não puderam ser lidos.`);
+      else if (!item.creativeRows) warnings.push(`${item.funnelName}: Criativos está sem dados.`);
+      return warnings;
+    });
+  }, [data]);
   const isPermissionError = Boolean(fetchError && /privada|permissão|compartilhar|acesso/i.test(fetchError));
   const hasInvalidCustomDateRange = Boolean(customDates.start && customDates.end && customDates.start > customDates.end);
 
@@ -1586,32 +1707,51 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             >
               <Layers size={16} className="text-[#00FFBB]" />
               <span className="text-zinc-400">Funis</span>
-              <span className="text-zinc-100 hidden sm:inline">{selectedProject === 'all' ? 'Todos' : selectedProject === '1' ? 'Estratégia em Ação' : 'Gestão de Projetos'}</span>
+              <span className="text-zinc-100 hidden sm:inline">
+                {selectedFunnelTags.length === funnels.length && funnels.length > 1
+                  ? 'Todos os funis'
+                  : selectedFunnelTags.length === 1
+                    ? selectedFunnelTags[0].name
+                    : `${selectedFunnelTags.length} funis selecionados`}
+              </span>
               <ChevronDown size={15} className={cn("text-zinc-400 transition-transform", isFunnelMenuOpen && "rotate-180 text-[#00FFBB]")} />
             </button>
 
             {isFunnelMenuOpen && (
               <div role="menu" className="absolute left-0 top-full mt-2 w-80 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-50">
                 <p className="px-2.5 py-2 text-xs text-zinc-400">Selecione os funis para consolidar a análise.</p>
+                {funnels.map((funnel) => {
+                  const isSelected = selectedFunnelIds.includes(funnel.id);
+                  return (
+                    <div key={funnel.id} className="flex items-center gap-1 rounded-[6px] hover:bg-white/[0.06]">
+                      <button
+                        role="menuitemcheckbox"
+                        aria-checked={isSelected}
+                        onClick={() => toggleFunnel(funnel.id)}
+                        className="min-w-0 flex-1 flex items-center gap-3 px-2.5 py-2.5 text-left transition-colors"
+                      >
+                        <span className={cn("w-4 h-4 border rounded-[4px] flex items-center justify-center shrink-0", isSelected ? "bg-[#00FFBB] border-[#00FFBB] text-[#1A1A1A]" : "border-zinc-500")}>{isSelected && <Check size={12} strokeWidth={3} />}</span>
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: funnel.color }} />
+                        <span className="text-sm font-medium text-zinc-100 min-w-0 truncate">{funnel.name}</span>
+                      </button>
+                      <button type="button" onClick={() => openFunnelEditor(funnel)} title={`Editar ${funnel.name}`} aria-label={`Editar ${funnel.name}`} className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-[6px] text-zinc-300 hover:bg-white/10 hover:text-white">
+                        <Pencil size={14} />
+                      </button>
+                      <button type="button" onClick={() => { setIsFunnelMenuOpen(false); setFunnelPendingDelete(funnel); }} title={`Remover ${funnel.name}`} aria-label={`Remover ${funnel.name}`} className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-[6px] text-rose-300 hover:bg-rose-500/15 hover:text-rose-100">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
                 <button
-                  role="menuitemcheckbox"
-                  aria-checked={selectedFunnels.strategy}
-                  onClick={() => toggleFunnel('strategy')}
-                  className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-[6px] hover:bg-white/[0.06] text-left transition-colors"
+                  type="button"
+                  onClick={() => {
+                    setIsFunnelMenuOpen(false);
+                    setIsAddFunnelConfirmOpen(true);
+                  }}
+                  className="w-full mt-2 pt-3 border-t border-white/10 flex items-center gap-2.5 px-2.5 py-2.5 rounded-[6px] text-[#00FFBB] hover:bg-[#00FFBB]/10 text-left text-sm font-bold transition-colors"
                 >
-                  <span className={cn("w-4 h-4 border rounded-[4px] flex items-center justify-center shrink-0", selectedFunnels.strategy ? "bg-[#00FFBB] border-[#00FFBB] text-[#1A1A1A]" : "border-zinc-500")}>{selectedFunnels.strategy && <Check size={12} strokeWidth={3} />}</span>
-                  <span className="w-2 h-2 rounded-full bg-[#00FFBB] shrink-0" />
-                  <span className="text-sm font-medium text-zinc-100">Livro Estratégia em Ação</span>
-                </button>
-                <button
-                  role="menuitemcheckbox"
-                  aria-checked={selectedFunnels.management}
-                  onClick={() => toggleFunnel('management')}
-                  className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-[6px] hover:bg-white/[0.06] text-left transition-colors"
-                >
-                  <span className={cn("w-4 h-4 border rounded-[4px] flex items-center justify-center shrink-0", selectedFunnels.management ? "bg-[#00FFBB] border-[#00FFBB] text-[#1A1A1A]" : "border-zinc-500")}>{selectedFunnels.management && <Check size={12} strokeWidth={3} />}</span>
-                  <span className="w-2 h-2 rounded-full bg-[#66BEFF] shrink-0" />
-                  <span className="text-sm font-medium text-zinc-100">Livro Gestão de Projetos com IA</span>
+                  <Plus size={16} /> Adicionar funil
                 </button>
               </div>
             )}
@@ -1826,22 +1966,12 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   {fetchError}
                   {data && ' Os últimos dados carregados continuam visíveis.'}
                 </p>
-                {isPermissionError && (selectedProject === '1' || selectedProject === '2' || selectedProject === 'all') && (
+                {isPermissionError && (
                   <div className="mt-3 text-xs bg-[#242424] p-3.5 rounded-[8px] border border-[#262626]">
-                    <p className="font-mono font-bold text-[#00FFBB] mb-1">Como resolver no Google Sheets (15 segundos):</p>
+                    <p className="font-mono font-bold text-[#00FFBB] mb-1">Como liberar a leitura da planilha:</p>
                     <ol className="list-decimal list-inside space-y-1 text-zinc-300">
-                      {selectedProject === '2' ? (
-                        <li>Acesse a planilha do Projeto 2: <a href="https://docs.google.com/spreadsheets/d/1qzE3zNFvUQwi_yIDcOrRy00wHxkhMTLzMeb9aCTRAbA/edit" target="_blank" rel="noreferrer" className="underline font-bold text-[#00FFBB] hover:text-[#00E5A7]">Abrir Planilha do Livro Gestão com IA</a></li>
-                      ) : selectedProject === '1' ? (
-                        <li>Acesse a planilha do Projeto 1: <a href="https://docs.google.com/spreadsheets/d/1fYoNt2OgXNFRsGg8-5xG8BkZHQJvKpUrHZA8nyeN6W8/edit" target="_blank" rel="noreferrer" className="underline font-bold text-[#00FFBB] hover:text-[#00E5A7]">Abrir Planilha do Livro Estratégia em Ação</a></li>
-                      ) : (
-                        <>
-                          <li>Acesse a planilha do Projeto 1: <a href="https://docs.google.com/spreadsheets/d/1fYoNt2OgXNFRsGg8-5xG8BkZHQJvKpUrHZA8nyeN6W8/edit" target="_blank" rel="noreferrer" className="underline font-bold text-[#00FFBB] hover:text-[#00E5A7]">Abrir Planilha Estratégia em Ação</a></li>
-                          <li>Acesse a planilha do Projeto 2: <a href="https://docs.google.com/spreadsheets/d/1qzE3zNFvUQwi_yIDcOrRy00wHxkhMTLzMeb9aCTRAbA/edit" target="_blank" rel="noreferrer" className="underline font-bold text-[#00FFBB] hover:text-[#00E5A7]">Abrir Planilha Gestão com IA</a></li>
-                        </>
-                      )}
                       <li>Clique no botão <strong>Compartilhar</strong> (canto superior direito).</li>
-                      <li>Não habilite acesso público por esta tela. Fale com o administrador do dashboard para revisar a conexão com a planilha.</li>
+                      <li>Em <strong>Acesso geral</strong>, selecione <strong>Qualquer pessoa com o link</strong> e a permissão <strong>Leitor</strong>.</li>
                       <li>Depois que o acesso for corrigido, sincronize novamente.</li>
                     </ol>
                   </div>
@@ -1930,6 +2060,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           </div>
         ) : (
           <>
+            {sourceWarnings.length > 0 && (
+              <div role="status" className="mb-5 flex items-start gap-3 rounded-[8px] border border-amber-300/25 bg-amber-300/[0.07] px-4 py-3 text-sm text-amber-100">
+                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-300" />
+                <div>
+                  <p className="font-semibold">Algumas fontes não entraram nesta sincronização.</p>
+                  <p className="mt-1 text-amber-100/80">{sourceWarnings.join(' ')}</p>
+                </div>
+              </div>
+            )}
             <React.Suspense fallback={<PanelLoadingState />}>
             {activeTab === 'Geral' && (
               <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -1938,9 +2077,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   <div className="flex flex-wrap items-center gap-2 mb-3" aria-label="Funis selecionados">
                     <span className="text-xs font-semibold text-zinc-500">Funis</span>
                     {selectedFunnelTags.map((funnel) => (
-                      <span key={funnel.label} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-zinc-200">
+                      <span key={funnel.id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-zinc-200">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: funnel.color }} />
-                        {funnel.label}
+                        {funnel.name}
                       </span>
                     ))}
                   </div>
@@ -2184,6 +2323,82 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         getCreativeThumbnail={getCreativeThumbnail}
         formatCurrency={formatCurrency}
       />
+
+      {isAddFunnelConfirmOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <section ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="add-funnel-confirm-title" className="w-full max-w-md rounded-[8px] border border-white/10 bg-[#151922] p-6 shadow-2xl">
+            <h2 id="add-funnel-confirm-title" className="text-lg font-bold text-white">Adicionar novo funil?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              O dashboard vai validar a planilha e incluir o funil automaticamente na seleção e nos relatórios.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setIsAddFunnelConfirmOpen(false)} className="min-h-10 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06]">
+                Cancelar
+              </button>
+              <button type="button" onClick={() => { setIsAddFunnelConfirmOpen(false); setIsAddFunnelModalOpen(true); }} style={ALLEVO_ACTION_STYLE} className="allevo-action min-h-10 rounded-[6px] px-4 text-sm font-bold !text-[#1A1A1A]">
+                Continuar
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isAddFunnelModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <form ref={(node) => { modalRef.current = node; }} onSubmit={handleSaveFunnel} role="dialog" aria-modal="true" aria-labelledby="add-funnel-title" className="w-full max-w-lg rounded-[8px] border border-white/10 bg-[#151922] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="add-funnel-title" className="text-lg font-bold text-white">{editingFunnel ? 'Editar funil' : 'Novo funil'}</h2>
+                <p className="mt-1 text-sm text-zinc-400">Informe o nome e a planilha que será a fonte de dados.</p>
+              </div>
+              <button type="button" onClick={() => closeFunnelEditor()} className="rounded-[6px] p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white" aria-label="Fechar cadastro de funil">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <label className="block text-sm font-semibold text-zinc-200">
+                Nome do funil
+                <input value={newFunnelName} onChange={(event) => setNewFunnelName(event.target.value)} required minLength={3} maxLength={80} placeholder="Ex.: Livro Nova Oferta" className="mt-2 min-h-11 w-full rounded-[6px] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#00FFBB]" />
+              </label>
+              <label className="block text-sm font-semibold text-zinc-200">
+                Link da planilha Google Sheets
+                <input type="url" value={newFunnelUrl} onChange={(event) => setNewFunnelUrl(event.target.value)} required placeholder="https://docs.google.com/spreadsheets/d/..." className="mt-2 min-h-11 w-full rounded-[6px] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#00FFBB]" />
+              </label>
+              <div className="rounded-[6px] border border-[#00FFBB]/20 bg-[#00FFBB]/[0.06] p-3 text-sm leading-relaxed text-zinc-300">
+                <strong className="text-[#00FFBB]">Antes de adicionar:</strong> na planilha, abra <strong>Compartilhar</strong> e configure <strong>Acesso geral: Qualquer pessoa com o link</strong> com a permissão <strong>Leitor</strong>. Ela precisa seguir o mesmo modelo das planilhas atuais.
+              </div>
+              {newFunnelError && <p role="alert" className="rounded-[6px] border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{newFunnelError}</p>}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" disabled={isCreatingFunnel} onClick={() => closeFunnelEditor()} className="min-h-10 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] disabled:opacity-50">
+                Cancelar
+              </button>
+              <button type="submit" disabled={isCreatingFunnel} style={ALLEVO_ACTION_STYLE} className="allevo-action min-h-10 rounded-[6px] px-4 text-sm font-bold !text-[#1A1A1A] disabled:opacity-60">
+                {isCreatingFunnel ? 'Validando...' : editingFunnel ? 'Validar e salvar' : 'Validar e adicionar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {funnelPendingDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <section ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="delete-funnel-title" className="w-full max-w-md rounded-[8px] border border-white/10 bg-[#151922] p-6 shadow-2xl">
+            <h2 id="delete-funnel-title" className="text-lg font-bold text-white">Remover funil?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              <strong>{funnelPendingDelete.name}</strong> deixará de aparecer no dashboard. Essa ação não apaga a planilha de origem.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" disabled={isDeletingFunnel} onClick={() => setFunnelPendingDelete(null)} className="min-h-10 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] disabled:opacity-50">
+                Cancelar
+              </button>
+              <button type="button" disabled={isDeletingFunnel} onClick={handleDeleteFunnel} className="min-h-10 rounded-[6px] bg-rose-500 px-4 text-sm font-bold text-white hover:bg-rose-400 disabled:opacity-60">
+                {isDeletingFunnel ? 'Removendo...' : 'Remover funil'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
     </div>
   );

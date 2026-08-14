@@ -24,9 +24,10 @@ DASHBOARD_ALLOWED_DOMAINS=allevotech.com,redealumni.com
 DASHBOARD_ALLOWED_EMAILS=
 DASHBOARD_PASSWORD=troque-essa-senha
 DASHBOARD_USER=admin
+DASHBOARD_ADMIN_EMAILS=lancamentos@redealumni.com
 ```
 
-Quando `DASHBOARD_PASSWORD` e os dominios/e-mails permitidos estao configurados, o dashboard inteiro e as APIs exigem login. A gestao de dominios e e-mails e feita pelo `.env` do servidor.
+Quando `DASHBOARD_PASSWORD` e os dominios/e-mails permitidos estao configurados, o dashboard inteiro e as APIs exigem login. A gestao de dominios e e-mails e feita pelo `.env` do servidor. `DASHBOARD_ADMIN_EMAILS` define quem pode cadastrar novos funis.
 
 ## Deploy com Docker
 
@@ -36,6 +37,7 @@ docker run -d \
   --name allevo-dashboard \
   --restart unless-stopped \
   --env-file .env \
+  -v /opt/allevo-dashboard/data:/app/data \
   -p 8088:3000 \
   allevo-dashboard:latest
 ```
@@ -54,4 +56,4 @@ Adicione as variaveis de ambiente no painel do app.
 
 ## Dados
 
-O backend le as planilhas publicadas/compartilhadas via Google Sheets. Para producao com planilhas privadas, o caminho recomendado e migrar para Service Account do Google e compartilhar as planilhas com o e-mail dessa conta.
+O backend le as planilhas via exportacao CSV do Google Sheets. Para cadastrar um funil, a planilha deve seguir o mesmo modelo das existentes e estar em `Compartilhar` > `Acesso geral` > `Qualquer pessoa com o link` com permissao `Leitor`. O cadastro fica salvo no volume `data` do servidor.

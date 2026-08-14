@@ -19,4 +19,4 @@ fix-*.cjs
 Dashboard-Prompt-Blueprint.md
 dashboard-architecture.md
 bun.lock
-data/funnels.json
+data/

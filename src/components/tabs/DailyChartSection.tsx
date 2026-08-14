@@ -45,6 +45,11 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   const strategyOrderBumpPalette = ['#A3E635', '#65A30D', '#4D7C0F'];
   const managementPalette = ['#60A5FA', '#6366F1', '#818CF8', '#A78BFA'];
   const managementOrderBumpPalette = ['#E879F9', '#C026D3', '#A21CAF'];
+  const additionalPalettes = [
+    { main: ['#FB923C', '#F97316', '#EA580C'], orderBump: ['#FDE047', '#FACC15', '#CA8A04'] },
+    { main: ['#F472B6', '#EC4899', '#DB2777'], orderBump: ['#FDA4AF', '#FB7185', '#E11D48'] },
+    { main: ['#22D3EE', '#06B6D4', '#0891B2'], orderBump: ['#A5F3FC', '#67E8F9', '#22D3EE'] }
+  ];
   const productTotals: Record<string, number> = dailyMetrics.reduce((totals: Record<string, number>, day: any) => {
     Object.entries(day.productSales || {}).forEach(([product, sales]) => {
       totals[product] = (totals[product] || 0) + Number(sales || 0);
@@ -54,7 +59,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   const getSeriesMeta = (series: string) => {
     const [funnel = 'Sem origem', kind = 'main', ...productParts] = series.split('::');
     return {
-      funnel: funnel === 'Gestão IA' || funnel === 'Estratégia' ? funnel : 'Sem origem',
+      funnel: funnel.trim() || 'Sem origem',
       isOrderBump: kind === 'ob',
       product: productParts.join('::') || series
     };
@@ -74,7 +79,11 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
       .replace(/Base de Conhecimento \+ Copiloto de Leitura/gi, 'Base + Cop.');
   const compactLegendLabel = (series: string) => {
     const { funnel, isOrderBump, product } = getSeriesMeta(series);
-    const funnelName = funnel === 'Estratégia' ? 'Estrat.' : funnel === 'Gestão IA' ? 'Gestão' : funnel;
+    const funnelName = /estrat(é|e)gia/i.test(funnel)
+      ? 'Estrat.'
+      : /gest(ã|a)o/i.test(funnel)
+        ? 'Gestão'
+        : funnel.length > 15 ? `${funnel.slice(0, 15)}...` : funnel;
     return `${funnelName} · ${isOrderBump ? 'OB · ' : ''}${compactProductName(product)}`;
   };
   const fullSeriesLabel = (series: string) => {
@@ -83,11 +92,16 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   };
   const productColor = (series: string) => {
     const { funnel, isOrderBump } = getSeriesMeta(series);
-    const palette = funnel === 'Estratégia'
+    const knownFunnels = Array.from(new Set([...mainProducts, ...orderBumpProducts].map(([name]) => getSeriesMeta(name).funnel)));
+    const palette = /estrat(é|e)gia/i.test(funnel)
       ? (isOrderBump ? strategyOrderBumpPalette : strategyPalette)
-      : funnel === 'Gestão IA'
+      : /gest(ã|a)o/i.test(funnel)
         ? (isOrderBump ? managementOrderBumpPalette : managementPalette)
-        : ['#94A3B8'];
+        : (() => {
+            const paletteIndex = Math.max(knownFunnels.indexOf(funnel) - 2, 0) % additionalPalettes.length;
+            const family = additionalPalettes[paletteIndex];
+            return isOrderBump ? family.orderBump : family.main;
+          })();
     const index = (isOrderBump ? orderBumpProducts : mainProducts)
       .filter(([name]) => getSeriesMeta(name).funnel === funnel)
       .findIndex(([name]) => name === series);

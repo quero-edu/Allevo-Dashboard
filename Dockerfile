@@ -17,6 +17,7 @@ COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
+RUN mkdir -p /app/data
 
 EXPOSE 3000
 

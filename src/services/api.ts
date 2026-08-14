@@ -5,6 +5,14 @@ class DashboardApiError extends Error {
   }
 }
 
+export interface DashboardFunnel {
+  id: string;
+  name: string;
+  sheetId: string;
+  color: string;
+  builtIn?: boolean;
+}
+
 const wait = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
 
 export async function fetchSpreadsheetData(project: string = '1', sheetId?: string, retries = 2, delay = 1500): Promise<any> {
@@ -55,5 +63,60 @@ export async function fetchSpreadsheetData(project: string = '1', sheetId?: stri
       throw new Error('A planilha demorou mais que o esperado para responder. Tente sincronizar novamente.');
     }
     throw error;
+  }
+}
+
+export async function fetchDashboardFunnels(): Promise<DashboardFunnel[]> {
+  const response = await fetch('/api/funnels', { cache: 'no-store' });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !Array.isArray(payload.funnels)) {
+    throw new Error(payload.error || 'Não foi possível carregar os funis cadastrados.');
+  }
+  return payload.funnels;
+}
+
+export async function createDashboardFunnel(name: string, spreadsheetUrl: string): Promise<DashboardFunnel> {
+  const response = await fetch('/api/funnels', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, spreadsheetUrl })
+  });
+  const isJson = response.headers.get('content-type')?.includes('application/json');
+  const payload = isJson ? await response.json().catch(() => ({})) : {};
+  if (!response.ok || !payload.funnel) {
+    if (response.status === 404) {
+      throw new Error('O servidor local ainda não foi reiniciado. Pare o npm run dev e inicie-o novamente antes de cadastrar um funil.');
+    }
+    if (response.status === 401) {
+      throw new Error('Sua sessão de acesso expirou. Recarregue a página e entre novamente.');
+    }
+    throw new Error(payload.error || `Não foi possível adicionar o funil (HTTP ${response.status}).`);
+  }
+  return payload.funnel;
+}
+
+async function parseFunnelMutation(response: Response, fallbackMessage: string): Promise<DashboardFunnel> {
+  const isJson = response.headers.get('content-type')?.includes('application/json');
+  const payload = isJson ? await response.json().catch(() => ({})) : {};
+  if (!response.ok || !payload.funnel) {
+    throw new Error(payload.error || `${fallbackMessage} (HTTP ${response.status}).`);
+  }
+  return payload.funnel;
+}
+
+export async function updateDashboardFunnel(id: string, name: string, spreadsheetUrl: string): Promise<DashboardFunnel> {
+  const response = await fetch(`/api/funnels/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, spreadsheetUrl })
+  });
+  return parseFunnelMutation(response, 'Não foi possível atualizar o funil');
+}
+
+export async function deleteDashboardFunnel(id: string): Promise<void> {
+  const response = await fetch(`/api/funnels/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `Não foi possível remover o funil (HTTP ${response.status}).`);
   }
 }

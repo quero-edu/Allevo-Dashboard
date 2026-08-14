@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
+import { promises as fs } from "fs";
 import { createServer as createViteServer } from "vite";
 import Papa from "papaparse";
 import JSZip from "jszip";
@@ -46,6 +47,107 @@ function isAllowedDashboardUser(suppliedUser: string, expectedUser?: string) {
   return false;
 }
 
+const DEFAULT_FUNNELS = [
+  {
+    id: "estrategia",
+    name: "Livro Estratégia em Ação",
+    sheetId: "1fYoNt2OgXNFRsGg8-5xG8BkZHQJvKpUrHZA8nyeN6W8",
+    color: "#00FFBB",
+    builtIn: true
+  },
+  {
+    id: "gestao-ia",
+    name: "Livro Gestão de Projetos com IA",
+    sheetId: "1qzE3zNFvUQwi_yIDcOrRy00wHxkhMTLzMeb9aCTRAbA",
+    color: "#66BEFF",
+    builtIn: true
+  }
+];
+
+type FunnelConfig = (typeof DEFAULT_FUNNELS)[number] & { builtIn?: boolean };
+
+const FUNNEL_CONFIG_PATH = process.env.DASHBOARD_FUNNELS_PATH || path.join(process.cwd(), "data", "funnels.json");
+const CUSTOM_FUNNEL_COLORS = ["#F97316", "#E879F9", "#A3E635", "#38BDF8", "#C084FC"];
+
+async function loadFunnels(): Promise<FunnelConfig[]> {
+  try {
+    const raw = await fs.readFile(FUNNEL_CONFIG_PATH, "utf8");
+    const stored = JSON.parse(raw);
+    const customFunnels = Array.isArray(stored) ? stored : stored?.customFunnels;
+    if (!Array.isArray(customFunnels)) return DEFAULT_FUNNELS;
+    const removedBuiltInIds = new Set(Array.isArray(stored?.removedBuiltInIds) ? stored.removedBuiltInIds : []);
+    const overrides = stored?.overrides && typeof stored.overrides === "object" ? stored.overrides : {};
+    const valid = customFunnels.filter((funnel) =>
+      funnel && typeof funnel.id === "string" && typeof funnel.name === "string" && typeof funnel.sheetId === "string"
+    );
+    const builtIns = DEFAULT_FUNNELS
+      .filter((funnel) => !removedBuiltInIds.has(funnel.id))
+      .map((funnel) => ({ ...funnel, ...(overrides[funnel.id] || {}), builtIn: true }));
+    return [...builtIns, ...valid.map((funnel) => ({ ...funnel, builtIn: false }))];
+  } catch (error: any) {
+    if (error?.code === "ENOENT") return DEFAULT_FUNNELS;
+    throw new Error("Não foi possível ler a configuração de funis.");
+  }
+}
+
+async function saveCustomFunnels(funnels: FunnelConfig[]) {
+  const customFunnels = funnels.filter((funnel) => !funnel.builtIn);
+  const removedBuiltInIds = DEFAULT_FUNNELS
+    .filter((defaultFunnel) => !funnels.some((funnel) => funnel.id === defaultFunnel.id))
+    .map((funnel) => funnel.id);
+  const overrides = Object.fromEntries(
+    DEFAULT_FUNNELS.flatMap((defaultFunnel) => {
+      const updated = funnels.find((funnel) => funnel.id === defaultFunnel.id);
+      if (!updated) return [];
+      const override = Object.fromEntries(
+        (["name", "sheetId", "color"] as const)
+          .filter((key) => updated[key] !== defaultFunnel[key])
+          .map((key) => [key, updated[key]])
+      );
+      return Object.keys(override).length > 0 ? [[defaultFunnel.id, override]] : [];
+    })
+  );
+  await fs.mkdir(path.dirname(FUNNEL_CONFIG_PATH), { recursive: true });
+  await fs.writeFile(FUNNEL_CONFIG_PATH, `${JSON.stringify({ customFunnels, removedBuiltInIds, overrides }, null, 2)}\n`, "utf8");
+}
+
+function extractSpreadsheetId(value: unknown) {
+  const input = String(value || "").trim();
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || input.match(/^([a-zA-Z0-9_-]{20,})$/);
+  return match?.[1] || "";
+}
+
+function buildFunnelId(name: string, existing: FunnelConfig[]) {
+  const base = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 40) || "funil";
+  const ids = new Set(existing.map((funnel) => funnel.id));
+  let id = base;
+  let suffix = 2;
+  while (ids.has(id)) id = `${base}-${suffix++}`;
+  return id;
+}
+
+function dashboardAdminEmail(req: express.Request) {
+  return String(req.res?.locals.dashboardUser || "").trim().toLowerCase();
+}
+
+function requireDashboardAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const configuredAdmins = parseList(process.env.DASHBOARD_ADMIN_EMAILS);
+  if (configuredAdmins.length === 0) {
+    if (process.env.NODE_ENV !== "production") return next();
+    return res.status(503).json({ error: "Cadastro de funis ainda não está habilitado. Configure DASHBOARD_ADMIN_EMAILS no servidor." });
+  }
+  if (!configuredAdmins.includes(dashboardAdminEmail(req))) {
+    return res.status(403).json({ error: "Somente administradores podem adicionar funis." });
+  }
+  next();
+}
+
 function requireDashboardAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const expectedUser = process.env.DASHBOARD_USER;
   const expectedPassword = process.env.DASHBOARD_PASSWORD;
@@ -83,6 +185,7 @@ function requireDashboardAuth(req: express.Request, res: express.Response, next:
     return res.status(401).send("Login inválido");
   }
 
+  res.locals.dashboardUser = suppliedUser.trim().toLowerCase();
   next();
 }
 
@@ -113,8 +216,69 @@ async function fetchCsv(gid: string, sheetId: string = "1fYoNt2OgXNFRsGg8-5xG8Bk
     });
   });
 }
-// Cache em memória para thumbnails do Instagram para alta performance
-const instagramThumbCache = new Map<string, string>();
+
+async function fetchCsvByTabName(tabName: string, sheetId: string): Promise<any[]> {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(`A planilha (ID: ${sheetId}) está privada. No Google Sheets, clique em 'Compartilhar' no canto superior direito e mude o acesso para 'Qualquer pessoa com o link pode ver'.`);
+    }
+    throw new Error(`Não foi possível localizar a aba ${tabName}: HTTP ${response.status}`);
+  }
+  const csvText = await response.text();
+  return new Promise((resolve, reject) => {
+    Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          reject(new Error(`Não foi possível interpretar os dados da aba ${tabName}: ${results.errors[0].message}`));
+          return;
+        }
+        resolve(results.data);
+      },
+      error: (error: any) => reject(error)
+    });
+  });
+}
+
+async function fetchCsvFromKnownTabs(sheetId: string, tabNames: string[], fallbackGid: string): Promise<any[]> {
+  let lastError: unknown;
+  for (const tabName of tabNames) {
+    try {
+      const rows = await fetchCsvByTabName(tabName, sheetId);
+      if (rows.length > 0) return rows;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  try {
+    return await fetchCsv(fallbackGid, sheetId);
+  } catch (fallbackError) {
+    throw lastError || fallbackError;
+  }
+}
+
+async function validateFunnelSource(sheetId: string) {
+  const [metaRows, buyerRows] = await fetchFunnelSourceRows(sheetId);
+  if (metaRows.length === 0 || buyerRows.length === 0) {
+    throw new Error("A planilha precisa ter dados nas abas de Meta e Compradores antes de ser cadastrada.");
+  }
+}
+// Cache bounded by time: previews must not block every dashboard sync.
+const INSTAGRAM_THUMB_TTL_MS = 6 * 60 * 60 * 1000;
+const MAX_THUMB_REQUESTS_IN_FLIGHT = 4;
+const MAX_THUMB_CACHE_ENTRIES = 300;
+const instagramThumbCache = new Map<string, { value: string; expiresAt: number }>();
+
+function cacheInstagramThumb(url: string, value: string) {
+  if (!instagramThumbCache.has(url) && instagramThumbCache.size >= MAX_THUMB_CACHE_ENTRIES) {
+    const oldestKey = instagramThumbCache.keys().next().value;
+    if (oldestKey) instagramThumbCache.delete(oldestKey);
+  }
+  instagramThumbCache.set(url, { value, expiresAt: Date.now() + INSTAGRAM_THUMB_TTL_MS });
+}
 const ALLOWED_IMAGE_HOSTS = [
   "drive.google.com",
   "lh3.googleusercontent.com",
@@ -136,8 +300,9 @@ function isAllowedImageUrl(value: string) {
 }
 
 async function getInstagramThumb(url: string): Promise<string> {
-  if (!url || !url.includes("instagram.com/p/")) return "";
-  if (instagramThumbCache.has(url)) return instagramThumbCache.get(url) || "";
+  if (!url || !/instagram\.com\/(?:p|reel|reels|tv)\//i.test(url)) return "";
+  const cached = instagramThumbCache.get(url);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
   try {
     const res = await fetch(url, {
       headers: {
@@ -150,14 +315,35 @@ async function getInstagramThumb(url: string): Promise<string> {
       const match = html.match(/<meta property="og:image" content="([^"]+)"/i);
       if (match) {
         const imgUrl = match[1].replace(/&amp;/g, "&");
-        instagramThumbCache.set(url, imgUrl);
+        cacheInstagramThumb(url, imgUrl);
         return imgUrl;
       }
     }
   } catch (e) {
     // Silencioso se der timeout
   }
+  cacheInstagramThumb(url, "");
   return "";
+}
+
+async function hydrateCreativeThumbnails(items: any[]): Promise<any[]> {
+  const pendingByLink = new Map<string, any[]>();
+  items.filter((item) => !item["Thumb_Criativo"] && item["Link"]).forEach((item) => {
+    const sameLinkItems = pendingByLink.get(item["Link"]) || [];
+    sameLinkItems.push(item);
+    pendingByLink.set(item["Link"], sameLinkItems);
+  });
+  const pending = [...pendingByLink.entries()];
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < pending.length) {
+      const [link, linkedItems] = pending[nextIndex++];
+      const thumbnail = await getInstagramThumb(link);
+      linkedItems.forEach((item) => { item["Thumb_Criativo"] = thumbnail; });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_THUMB_REQUESTS_IN_FLIGHT, pending.length) }, worker));
+  return items;
 }
 
 function parseCellVal(rowXml: string, col: string, rowNum: number, strings: string[]): string {
@@ -194,6 +380,86 @@ function parseCellVal(rowXml: string, col: string, rowNum: number, strings: stri
   return (val || "").trim();
 }
 
+function normalizeTabName(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+function parseWorksheetRows(sheetXml: string, strings: string[]): any[] {
+  const rows = sheetXml.match(/<row\b[^>]*r="\d+"[^>]*>[\s\S]*?<\/row>/g) || [];
+  const headerRow = rows.find((row) => /<row\b[^>]*r="1"/.test(row));
+  if (!headerRow) return [];
+  const columns = [...headerRow.matchAll(/<c r="([A-Z]+)1"/g)].map((match) => match[1]);
+  const headers = columns.map((column) => parseCellVal(headerRow, column, 1, strings) || `Coluna ${column}`);
+
+  return rows
+    .map((row) => ({ row, rowNumber: Number(row.match(/<row\b[^>]*r="(\d+)"/)?.[1] || 0) }))
+    .filter(({ rowNumber }) => rowNumber > 1)
+    .map(({ row, rowNumber }) => Object.fromEntries(
+      columns.map((column, index) => [headers[index], parseCellVal(row, column, rowNumber, strings)])
+    ));
+}
+
+async function fetchFunnelSourceRows(sheetId: string): Promise<[any[], any[]]> {
+  try {
+    const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const zip = await JSZip.loadAsync(await response.arrayBuffer());
+    const sharedStringsXml = await zip.file("xl/sharedStrings.xml")?.async("text") || "";
+    const strings = (sharedStringsXml.match(/<si>[\s\S]*?<\/si>/g) || []).map((entry) =>
+      (entry.match(/<t[^>]*>(.*?)<\/t>/gs) || []).map((text) => text.replace(/<t[^>]*>|<\/t>/g, "")).join("")
+    );
+    const workbookXml = await zip.file("xl/workbook.xml")?.async("text") || "";
+    const relationshipsXml = await zip.file("xl/_rels/workbook.xml.rels")?.async("text") || "";
+    const relationships = Object.fromEntries(
+      [...relationshipsXml.matchAll(/<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"/g)]
+        .map((match) => [match[1], match[2].startsWith("/") ? match[2].slice(1) : `xl/${match[2]}`])
+    );
+    const sheets = [...workbookXml.matchAll(/<sheet[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"/g)].map((match) => ({ name: match[1], file: relationships[match[2]] }));
+    const findRows = async (names: string[], matchesSource?: (rows: any[]) => boolean) => {
+      const wanted = new Set(names.map(normalizeTabName));
+      const sheet = sheets.find((item) => wanted.has(normalizeTabName(item.name)) && item.file);
+      if (sheet?.file) {
+        const xml = await zip.file(sheet.file)?.async("text");
+        if (!xml) throw new Error(`Não foi possível ler a aba ${sheet.name}`);
+        return parseWorksheetRows(xml, strings);
+      }
+
+      // A spreadsheet copy can rename its tabs while retaining the expected
+      // data layout. In that case, identify the source by its columns.
+      if (matchesSource) {
+        for (const candidate of sheets) {
+          if (!candidate.file) continue;
+          const xml = await zip.file(candidate.file)?.async("text");
+          const rows = xml ? parseWorksheetRows(xml, strings) : [];
+          if (rows.length > 0 && matchesSource(rows)) {
+            console.info(`Aba ${names[0]} identificada pela estrutura: ${candidate.name}`);
+            return rows;
+          }
+        }
+      }
+
+      throw new Error(`Aba não encontrada: ${names[0]}. Abas disponíveis: ${sheets.map((item) => item.name).join(", ")}`);
+    };
+    const hasHeader = (rows: any[], pattern: RegExp) => Object.keys(rows[0] || {}).some((header) => pattern.test(normalizeTabName(header)));
+    return await Promise.all([
+      findRows(
+        ["Dados Meta Ads", "Meta Ads", "Dados da Meta"],
+        (rows) => hasHeader(rows, /impressoes|nome do anuncio|nome da campanha|alcance/)
+      ),
+      findRows(
+        ["Vendas", "Dados dos Compradores", "Compradores"],
+        (rows) => hasHeader(rows, /produto|order bump|transacao|comprador|e-mail|email/)
+      )
+    ]);
+  } catch (error) {
+    console.warn("Leitura XLSX das abas de funil falhou; tentando exportação CSV:", error);
+    return Promise.all([
+      fetchCsvFromKnownTabs(sheetId, ["Dados Meta Ads", "Meta Ads", "Dados da Meta"], "57289144"),
+      fetchCsvFromKnownTabs(sheetId, ["Vendas", "Dados dos Compradores", "Compradores"], "0")
+    ]);
+  }
+}
+
 async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
@@ -217,8 +483,31 @@ async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
       }
     }
 
+    // Prefer the real tab name over a fixed worksheet position. Copies of a
+    // spreadsheet can reorder worksheet files while retaining the same tabs.
+    const workbookXml = await zip.file("xl/workbook.xml")?.async("text") || "";
+    const relationshipsXml = await zip.file("xl/_rels/workbook.xml.rels")?.async("text") || "";
+    const relationships = Object.fromEntries(
+      [...relationshipsXml.matchAll(/<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"/g)]
+        .map((match) => [match[1], match[2].startsWith("/") ? match[2].slice(1) : `xl/${match[2]}`])
+    );
+    const workbookSheets = [...workbookXml.matchAll(/<sheet[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"/g)]
+      .map((match) => ({ name: match[1], file: relationships[match[2]] }));
+    const creativeSheet = workbookSheets.find((sheet) => /criativo/i.test(sheet.name) && sheet.file);
+    if (creativeSheet?.file) {
+      const creativeXml = await zip.file(creativeSheet.file)?.async("text");
+      const rowsFromNamedTab = creativeXml ? parseWorksheetRows(creativeXml, strings) : [];
+      if (rowsFromNamedTab.length > 0) {
+        return hydrateCreativeThumbnails(rowsFromNamedTab.map((item: any) => ({
+          "Criativos": item["Nome Criativo"] || item["Criativos"] || item["Nome do Anúncio"] || item["Nome"] || "",
+          "Link": item["Link Criativo"] || item["Link"] || item["Link dos criativos"] || "",
+          "Thumb_Criativo": item["Thumb_Criativo"] || item["Thumb Criativo"] || item["thumb_criativo"] || item["Thumbnail"] || item["Thumb"] || item["Imagem"] || item["Preview"] || item["Prévia"] || ""
+        })));
+      }
+    }
+
     // Workbook to map sheet name to sheet file
-    const wbXml = await zip.file("xl/workbook.xml")?.async("text") || "";
+    const wbXml = workbookXml;
     const sheetMatches = [...wbXml.matchAll(/<sheet[^>]*name="([^"]+)"[^>]*sheetId="([^"]+)"[^>]*r:id="([^"]+)"/g)];
     
     const relsXml = await zip.file("xl/_rels/workbook.xml.rels")?.async("text") || "";
@@ -341,16 +630,7 @@ async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
     }
 
     // Para itens com link do Instagram e sem thumb explícita, tentar resolver a thumb via OpenGraph
-    const promises = items.map(async (item) => {
-      if (!item["Thumb_Criativo"] && item["Link"] && item["Link"].includes("instagram.com/p/")) {
-        const ogImg = await getInstagramThumb(item["Link"]);
-        if (ogImg) {
-          item["Thumb_Criativo"] = ogImg;
-        }
-      }
-      return item;
-    });
-    await Promise.all(promises);
+    await hydrateCreativeThumbnails(items);
     
     if (items.length > 0) {
       return items;
@@ -360,7 +640,7 @@ async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
   }
 
   // Fallback to CSV
-  const csvRows = await fetchCsv("1468046400", sheetId);
+  const csvRows = await fetchCsvFromKnownTabs(sheetId, ["Link Criativos", "Criativos"], "1468046400");
   return csvRows.map((item: any) => ({
     "Criativos": item["Nome Criativo"] || item["Criativos"] || item["Nome do Anúncio"] || item["Nome"] || "",
     "Link": item["Link Criativo"] || item["Link"] || "",
@@ -372,6 +652,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(express.json({ limit: "32kb" }));
   app.use(requireDashboardAuth);
 
   // Endpoint de proxy de imagem para evitar bloqueios de CORS/Referer
@@ -413,14 +694,105 @@ async function startServer() {
   });
 
   // API routes FIRST
+  app.get("/api/funnels", async (_req, res) => {
+    try {
+      res.json({ funnels: await loadFunnels() });
+    } catch (error: any) {
+      res.status(502).json({ error: error.message || "Não foi possível carregar os funis." });
+    }
+  });
+
+  app.post("/api/funnels", requireDashboardAdmin, async (req, res) => {
+    try {
+      const name = String(req.body?.name || "").trim().replace(/\s+/g, " ");
+      const sheetId = extractSpreadsheetId(req.body?.spreadsheetUrl);
+      if (name.length < 3 || name.length > 80) {
+        return res.status(400).json({ error: "Informe um nome de funil entre 3 e 80 caracteres." });
+      }
+      if (!sheetId) {
+        return res.status(400).json({ error: "Cole um link válido do Google Sheets." });
+      }
+
+      const funnels = await loadFunnels();
+      if (funnels.some((funnel) => funnel.sheetId === sheetId)) {
+        return res.status(409).json({ error: "Essa planilha já está cadastrada em um funil." });
+      }
+
+      await validateFunnelSource(sheetId);
+
+      const customFunnels = funnels.filter((funnel) => !funnel.builtIn);
+      const funnel: FunnelConfig = {
+        id: buildFunnelId(name, funnels),
+        name,
+        sheetId,
+        color: CUSTOM_FUNNEL_COLORS[customFunnels.length % CUSTOM_FUNNEL_COLORS.length],
+        builtIn: false
+      };
+      await saveCustomFunnels([...funnels, funnel]);
+      res.status(201).json({ funnel });
+    } catch (error: any) {
+      const message = error.message || "Não foi possível validar a planilha.";
+      const isPermissionError = /privada|permissão|compartilhar/i.test(message);
+      res.status(isPermissionError ? 403 : 422).json({ error: message });
+    }
+  });
+
+  app.put("/api/funnels/:funnelId", requireDashboardAdmin, async (req, res) => {
+    try {
+      const name = String(req.body?.name || "").trim().replace(/\s+/g, " ");
+      const sheetId = extractSpreadsheetId(req.body?.spreadsheetUrl);
+      if (name.length < 3 || name.length > 80) {
+        return res.status(400).json({ error: "Informe um nome de funil entre 3 e 80 caracteres." });
+      }
+      if (!sheetId) {
+        return res.status(400).json({ error: "Cole um link válido do Google Sheets." });
+      }
+
+      const funnels = await loadFunnels();
+      const funnel = funnels.find((item) => item.id === req.params.funnelId);
+      if (!funnel) return res.status(404).json({ error: "Funil não encontrado." });
+      if (funnels.some((item) => item.id !== funnel.id && item.sheetId === sheetId)) {
+        return res.status(409).json({ error: "Essa planilha já está cadastrada em outro funil." });
+      }
+
+      await validateFunnelSource(sheetId);
+      const updated: FunnelConfig = { ...funnel, name, sheetId };
+      await saveCustomFunnels(funnels.map((item) => item.id === funnel.id ? updated : item));
+      res.json({ funnel: updated });
+    } catch (error: any) {
+      const message = error.message || "Não foi possível atualizar o funil.";
+      const isPermissionError = /privada|permissão|compartilhar/i.test(message);
+      res.status(isPermissionError ? 403 : 422).json({ error: message });
+    }
+  });
+
+  app.delete("/api/funnels/:funnelId", requireDashboardAdmin, async (req, res) => {
+    try {
+      const funnels = await loadFunnels();
+      const funnel = funnels.find((item) => item.id === req.params.funnelId);
+      if (!funnel) return res.status(404).json({ error: "Funil não encontrado." });
+      if (funnels.length <= 1) {
+        return res.status(422).json({ error: "Mantenha pelo menos um funil cadastrado no dashboard." });
+      }
+      await saveCustomFunnels(funnels.filter((item) => item.id !== funnel.id));
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(502).json({ error: error.message || "Não foi possível remover o funil." });
+    }
+  });
+
   app.get("/api/spreadsheet", async (req, res) => {
     try {
-      const project = (req.query.project as string) || "1";
-      const sheetId1 = "1fYoNt2OgXNFRsGg8-5xG8BkZHQJvKpUrHZA8nyeN6W8";
-      const sheetId2 = "1qzE3zNFvUQwi_yIDcOrRy00wHxkhMTLzMeb9aCTRAbA";
+      const requestedProject = String(req.query.project || "estrategia");
+      const funnels = await loadFunnels();
+      const aliases: Record<string, string> = { "1": "estrategia", "2": "gestao-ia" };
+      const requestedIds = requestedProject === "all" || requestedProject === "consolidado" || requestedProject === "both"
+        ? funnels.map((funnel) => funnel.id)
+        : requestedProject.split(",").map((id) => aliases[id] || id).filter(Boolean);
+      const selectedFunnels = funnels.filter((funnel) => requestedIds.includes(funnel.id));
 
-      if (!['1', '2', 'all', 'consolidado', 'both'].includes(project)) {
-        return res.status(400).json({ error: 'Funil inválido. Selecione um funil disponível e tente novamente.' });
+      if (selectedFunnels.length === 0 || selectedFunnels.length !== new Set(requestedIds).size) {
+        return res.status(400).json({ error: "Funil inválido. Selecione um funil disponível e tente novamente." });
       }
 
       const getField = (item: any, ...keys: string[]) => {
@@ -440,17 +812,41 @@ async function startServer() {
         return '';
       };
 
-      const formatMeta = (item: any) => ({
-        "Data": item["Data"],
-        "Nome da Campanha": item["Nome da Campanha"],
-        "Nome do Conjunto": item["Nome do Conjunto"],
-        "Nome do Anúncio": item["Nome do Anúncio"],
-        "Gasto": parseFloat((item["Gasto"] || '0').replace(',', '.')),
-        "Impressões": parseInt(item["Impressões"] || '0', 10),
-        "Cliques no Link": parseInt(item["Cliques no Link"] || '0', 10),
-        "Visualizações da Página de Destino": parseInt(item["Visualizações da Página de Destino"] || '0', 10),
-        "Iniciate Checkout": parseInt(item["Iniciate Checkout"] || '0', 10),
-        "Thumb_Criativo": getField(item, "Thumb_Criativo", "Thumb Criativo", "thumb_criativo", "Thumb_criativo", "Thumbnail", "Thumb", "Imagem", "Preview", "Prévia")
+      const parseSheetNumber = (value: string) => {
+        const normalized = value.replace(/[^0-9,.-]/g, "");
+        if (!normalized) return 0;
+        const canonical = normalized.includes(",")
+          ? normalized.replace(/\./g, "").replace(",", ".")
+          : normalized.replace(/,/g, "");
+        const parsed = Number(canonical);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      const normalizeMetaDate = (value: string) => {
+        const trimmed = value.trim();
+        // XLSX stores dates as an Excel serial number (for example, 45948).
+        // Convert it before the client applies its selected-period filter.
+        if (/^\d{4,5}(?:\.\d+)?$/.test(trimmed)) {
+          const serial = Number(trimmed);
+          const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86_400_000);
+          if (!Number.isNaN(date.getTime())) {
+            return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+          }
+        }
+        return trimmed;
+      };
+
+      const formatMeta = (item: any, funil: string) => ({
+        "Data": normalizeMetaDate(getField(item, "Data", "Dia", "Data de início", "Data de inicio", "Data do relatório", "Data do relatorio")),
+        "Nome da Campanha": getField(item, "Nome da Campanha", "Campanha"),
+        "Nome do Conjunto": getField(item, "Nome do Conjunto", "Conjunto de anúncios", "Conjunto de anuncios", "Conjunto"),
+        "Nome do Anúncio": getField(item, "Nome do Anúncio", "Nome do Anuncio", "Anúncio", "Anuncio"),
+        "Gasto": parseSheetNumber(getField(item, "Gasto", "Valor gasto", "Valor gasto (BRL)", "Amount spent")),
+        "Impressões": parseSheetNumber(getField(item, "Impressões", "Impressoes", "Impressions")),
+        "Cliques no Link": parseSheetNumber(getField(item, "Cliques no Link", "Cliques no link", "Link clicks")),
+        "Visualizações da Página de Destino": parseSheetNumber(getField(item, "Visualizações da Página de Destino", "Visualizacoes da Pagina de Destino", "Visualizações da página de destino", "Landing page views")),
+        "Iniciate Checkout": parseSheetNumber(getField(item, "Iniciate Checkout", "Initiate Checkout", "Checkouts iniciados")),
+        "Thumb_Criativo": getField(item, "Thumb_Criativo", "Thumb Criativo", "thumb_criativo", "Thumb_criativo", "Thumbnail", "Thumb", "Imagem", "Preview", "Prévia"),
+        "Funil": funil
       });
 
 function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: string; timestamp: number } {
@@ -539,7 +935,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
   };
 }
 
-      const formatBuyers = (item: any, funil: 'Estratégia' | 'Gestão IA') => {
+      const formatBuyers = (item: any, funil: string) => {
         // Column B carries the source purchase timestamp. Use C only when B is empty.
         // Both values are converted from UTC to UTC-3 below.
         const buyerValues = Object.values(item || {});
@@ -570,45 +966,50 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
         };
       };
 
-      if (project === "all" || project === "consolidado" || project === "both") {
-        const [
-          [metaItems1, compradoresItems1, criativosItems1],
-          [metaItems2, compradoresItems2, criativosItems2]
-        ] = await Promise.all([
-          Promise.all([fetchCsv("57289144", sheetId1), fetchCsv("0", sheetId1), fetchCriativosWithThumbs(sheetId1)]),
-          Promise.all([fetchCsv("57289144", sheetId2), fetchCsv("0", sheetId2), fetchCriativosWithThumbs(sheetId2)])
+      const sources = await Promise.all(selectedFunnels.map(async (funnel) => {
+        const [funnelSourceResult, criativosResult] = await Promise.allSettled([
+          fetchFunnelSourceRows(funnel.sheetId),
+          fetchCriativosWithThumbs(funnel.sheetId)
         ]);
 
-        const data: any = {
-          "Dados da Meta": [...metaItems1.map(formatMeta), ...metaItems2.map(formatMeta)],
-          "Dados dos Compradores": [
-            ...compradoresItems1.map((item) => formatBuyers(item, 'Estratégia')),
-            ...compradoresItems2.map((item) => formatBuyers(item, 'Gestão IA'))
-          ],
-          "Link dos criativos": [...criativosItems1, ...criativosItems2]
+        const sourceError = funnelSourceResult.status === "rejected"
+          ? (funnelSourceResult.reason?.message || "Não foi possível ler os dados de Meta e Compradores.")
+          : null;
+        const creativeError = criativosResult.status === "rejected"
+          ? (criativosResult.reason?.message || "Não foi possível ler a aba de Criativos.")
+          : null;
+        const [metaItems, compradoresItems] = funnelSourceResult.status === "fulfilled"
+          ? funnelSourceResult.value
+          : [[], []];
+        const criativosItems = criativosResult.status === "fulfilled" ? criativosResult.value : [];
+
+        return {
+          funnel,
+          metaItems,
+          compradoresItems,
+          criativosItems,
+          diagnostics: {
+            metaRows: metaItems.length,
+            buyerRows: compradoresItems.length,
+            creativeRows: criativosItems.length,
+            sourceError,
+            creativeError
+          }
         };
-
-        return res.json({ data, project: "all", sheetId: "consolidated" });
-      }
-
-      let sheetId = sheetId1;
-      if (project === "2") {
-        sheetId = sheetId2;
-      }
-
-      const [metaItems, compradoresItems, criativosItems] = await Promise.all([
-        fetchCsv("57289144", sheetId),
-        fetchCsv("0", sheetId),
-        fetchCriativosWithThumbs(sheetId)
-      ]);
+      }));
 
       const data: any = {
-        "Dados da Meta": metaItems.map(formatMeta),
-        "Dados dos Compradores": compradoresItems.map((item) => formatBuyers(item, project === '2' ? 'Gestão IA' : 'Estratégia')),
-        "Link dos criativos": criativosItems
+        "Dados da Meta": sources.flatMap(({ funnel, metaItems }) => metaItems.map((item) => formatMeta(item, funnel.name))),
+        "Dados dos Compradores": sources.flatMap(({ funnel, compradoresItems }) => compradoresItems.map((item) => formatBuyers(item, funnel.name))),
+        "Link dos criativos": sources.flatMap(({ criativosItems }) => criativosItems)
       };
 
-      res.json({ data, project, sheetId });
+      res.json({
+        data,
+        project: selectedFunnels.map((funnel) => funnel.id).join(","),
+        funnels: selectedFunnels,
+        diagnostics: sources.map(({ funnel, diagnostics }) => ({ funnelId: funnel.id, funnelName: funnel.name, ...diagnostics }))
+      });
     } catch (error: any) {
       console.error("Erro ao buscar dados da planilha:", error);
       const message = error.message || "Erro interno no servidor ao processar os dados";

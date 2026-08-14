@@ -2,6 +2,7 @@ import React from 'react';
 import { Monitor } from 'lucide-react';
 import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip } from 'recharts';
 import { cn } from '../../lib/utils';
+import { SortableHeader } from '../ui/SortableHeader';
 
 interface FontesTabProps {
   metricsData: any;
@@ -235,15 +236,15 @@ export const FontesTab: React.FC<FontesTabProps> = ({
         </div>
         <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de vendas por página. Deslize horizontalmente para ver todas as colunas.">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-white/[0.045] border-b border-white/10 text-[#00FFBB] font-mono font-bold uppercase tracking-wider text-[10px]">
+            <thead className="table-heading font-mono font-bold uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="px-6 py-4 cursor-pointer hover:bg-[#2E2E2E]" onClick={() => togglePageSort('url')}>Página {pageSort.column === 'url' && (pageSort.direction === 'asc' ? '↑' : '↓')}</th>
-                <th className="px-6 py-4 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => togglePageSort('pageViews')}>Acessos {pageSort.column === 'pageViews' && (pageSort.direction === 'asc' ? '↑' : '↓')}</th>
-                <th className="px-6 py-4 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => togglePageSort('checkouts')}>Checkouts {pageSort.column === 'checkouts' && (pageSort.direction === 'asc' ? '↑' : '↓')}</th>
-                <th className="px-6 py-4 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => togglePageSort('taxIC')}>Taxa IC {pageSort.column === 'taxIC' && (pageSort.direction === 'asc' ? '↑' : '↓')}</th>
-                <th className="px-6 py-4 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => togglePageSort('salesMeta')}>Vendas (Tráfego) {pageSort.column === 'salesMeta' && (pageSort.direction === 'asc' ? '↑' : '↓')}</th>
-                <th className="px-6 py-4 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => togglePageSort('taxVenda')}>Tx. Venda {pageSort.column === 'taxVenda' && (pageSort.direction === 'asc' ? '↑' : '↓')}</th>
-                <th className="px-6 py-4 text-right bg-[#242424] border-l border-[#262626] cursor-pointer hover:bg-[#2E2E2E]" onClick={() => togglePageSort('salesOther')}>Vendas (Orgânico/Outros) {pageSort.column === 'salesOther' && (pageSort.direction === 'asc' ? '↑' : '↓')}</th>
+                <SortableHeader column="url" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort}>Página</SortableHeader>
+                <SortableHeader column="pageViews" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort} align="right">Acessos</SortableHeader>
+                <SortableHeader column="checkouts" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort} align="right">Checkouts</SortableHeader>
+                <SortableHeader column="taxIC" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort} align="right">Taxa IC</SortableHeader>
+                <SortableHeader column="salesMeta" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort} align="right">Vendas (tráfego)</SortableHeader>
+                <SortableHeader column="taxVenda" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort} align="right">Tx. venda</SortableHeader>
+                <SortableHeader column="salesOther" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort} align="right" className="border-l border-[var(--table-divider)]">Vendas (orgânico/outros)</SortableHeader>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#262626] text-zinc-300 font-mono text-xs">

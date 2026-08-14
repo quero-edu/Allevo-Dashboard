@@ -1,5 +1,6 @@
-import React from 'react';
-import { Search, ExternalLink, Maximize2 } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Search, ExternalLink, Maximize2, ImageOff } from 'lucide-react';
+import { SortableHeader } from '../ui/SortableHeader';
 
 interface CriativosTabProps {
   creativeFilter: string;
@@ -26,8 +27,13 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
   formatNumber,
   formatPercent
 }) => {
+  const visibleCreatives = useMemo(
+    () => sortedCreatives.filter((creative: any) => (creative.name || '').toLowerCase().includes(creativeFilter.toLowerCase())),
+    [creativeFilter, sortedCreatives]
+  );
+
   return (
-    <div className="bg-[#151922] rounded-[8px] border border-white/10 shadow-[0_18px_52px_rgba(0,0,0,0.22)] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="table-panel overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="p-6 border-b border-[#262626] flex items-center justify-between flex-wrap gap-4">
         <h3 className="text-base font-mono font-bold tracking-tight text-[#00FFBB] uppercase">Performance dos Criativos</h3>
         <div className="relative">
@@ -38,61 +44,42 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
             placeholder="Filtrar criativo..." 
             value={creativeFilter}
             onChange={e => setCreativeFilter(e.target.value)}
-            className="pl-9 pr-4 py-2 bg-[#242424] border border-[#262626] rounded-[8px] text-xs font-sans text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#00FFBB]/30 focus:border-[#00FFBB] transition-all w-64 shadow-inner"
+            className="pl-9 pr-4 py-2 bg-[#242424] border border-[#262626] rounded-[8px] text-base sm:text-xs font-sans text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-[#00FFBB]/30 focus:border-[#00FFBB] transition-all w-full sm:w-64 shadow-inner"
           />
         </div>
       </div>
       <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de criativos. Deslize horizontalmente para ver todas as colunas.">
         <table className="w-full text-left text-sm whitespace-nowrap lg:whitespace-normal">
-          <thead className="bg-white/[0.045] border-b border-white/10 text-[#00FFBB] font-mono font-bold uppercase tracking-wider text-[11px]">
-            <tr>
-              <th className="px-3 py-3.5 text-center">Prévia</th>
-              <th className="px-4 py-3.5 cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('name')}>
-                Criativo {creativeSort.column === 'name' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
+            <thead className="table-heading font-mono font-bold uppercase tracking-wider text-[11px]">
+              <tr>
+                <th className="px-3 py-3.5 text-center">Prévia</th>
+              <SortableHeader column="name" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort}>Criativo</SortableHeader>
               <th className="px-4 py-3.5 text-center">Link Meta</th>
-              <th className="px-4 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('investimento')}>
-                Gasto {creativeSort.column === 'investimento' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-4 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('impressoes')}>
-                Impressões {creativeSort.column === 'impressoes' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-4 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('cliques')}>
-                Cliques {creativeSort.column === 'cliques' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-4 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('ctr')}>
-                CTR {creativeSort.column === 'ctr' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-4 py-3.5 text-center cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('vendas')}>
-                Livros Vendidos {creativeSort.column === 'vendas' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-4 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('cpa')}>
-                CPA {creativeSort.column === 'cpa' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-4 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('roas')}>
-                ROAS {creativeSort.column === 'roas' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-4 py-3.5 text-right cursor-pointer hover:bg-[#2E2E2E]" onClick={() => toggleCreativeSort('conv')}>
-                Conv. {creativeSort.column === 'conv' && (creativeSort.direction === 'asc' ? '↑' : '↓')}
-              </th>
+              <SortableHeader column="investimento" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">Gasto</SortableHeader>
+              <SortableHeader column="impressoes" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">Impressões</SortableHeader>
+              <SortableHeader column="cliques" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">Cliques</SortableHeader>
+              <SortableHeader column="ctr" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">CTR</SortableHeader>
+              <SortableHeader column="vendas" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="center">Livros vendidos</SortableHeader>
+              <SortableHeader column="cpa" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">CPA</SortableHeader>
+              <SortableHeader column="roas" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">ROAS</SortableHeader>
+              <SortableHeader column="conv" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">Conv.</SortableHeader>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#262626] text-zinc-300 font-mono text-xs">
-            {sortedCreatives
-              .filter((c: any) => c.name.toLowerCase().includes(creativeFilter.toLowerCase()))
-              .map((c: any) => {
+            {visibleCreatives.map((c: any) => {
                 const rawThumb = c.Thumb_Criativo || c.thumb || c.thumbnail || c.image;
                 const thumbUrl = getCreativeThumbnail(c.name, rawThumb);
                 return (
                   <tr key={c.name} className="hover:bg-white/[0.045] transition-colors">
                     <td className="px-3 py-3 text-center">
                       <button 
+                        disabled={!thumbUrl}
                         onClick={() => setActiveLightboxImage({ name: c.name, url: thumbUrl, link: c.link, stats: c })}
-                        className="relative group/thumb block mx-auto focus:outline-none cursor-pointer"
-                        title="Clique para ampliar prévia do criativo"
+                        className="relative group/thumb block mx-auto cursor-pointer disabled:cursor-default"
+                        title={thumbUrl ? "Clique para ampliar prévia do criativo" : "Prévia indisponível para este criativo"}
                       >
                         <div className="w-12 h-9 rounded-[6px] bg-[#242424] overflow-hidden border border-[#262626] group-hover/thumb:border-[#00FFBB] transition-all shadow-sm flex items-center justify-center relative">
-                          <img 
+                          {thumbUrl ? <img
                             src={thumbUrl} 
                             alt={c.name}
                             loading="lazy"
@@ -101,13 +88,11 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                             className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
                             onError={(e) => {
                               const target = e.currentTarget as HTMLImageElement;
-                              if (rawThumb && !target.src.includes('/api/proxy-image') && !target.src.includes('unsplash.com')) {
+                              if (rawThumb && !target.src.includes('/api/proxy-image')) {
                                 target.src = `/api/proxy-image?url=${encodeURIComponent(rawThumb)}`;
-                              } else if (!target.src.includes('unsplash.com')) {
-                                target.src = getCreativeThumbnail(c.name);
                               }
                             }}
-                          />
+                          /> : <ImageOff size={15} className="text-zinc-500" aria-label="Prévia indisponível" />}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
                             <Maximize2 size={12} className="text-[#00FFBB]" />
                           </div>
@@ -142,11 +127,12 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                     <td className="px-4 py-3.5 text-right font-bold text-[#00FFBB]">{formatPercent(c.conv)}</td>
                   </tr>
                 );
-              })}
-            {sortedCreatives.filter((c: any) => c.name.toLowerCase().includes(creativeFilter.toLowerCase())).length === 0 && (
+            })}
+            {visibleCreatives.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-6 py-12 text-center text-zinc-500 font-sans font-medium">
-                  Nenhum criativo encontrado.
+                <td colSpan={11} className="px-6 py-12 text-center font-sans">
+                  <p className="font-medium text-zinc-400">{creativeFilter ? 'Nenhum criativo corresponde ao filtro.' : 'Nenhum criativo sincronizado neste período.'}</p>
+                  <p className="mt-1 text-xs text-zinc-500">{creativeFilter ? 'Revise a busca ou limpe o filtro.' : 'Altere o período ou sincronize a planilha novamente.'}</p>
                 </td>
               </tr>
             )}

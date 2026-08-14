@@ -75,11 +75,14 @@
   --allevo-text-on-action: #1A1A1A;
   --allevo-action-start: var(--brand-strategy-strong);
   --allevo-action-end: var(--brand-strategy);
+  --table-heading: var(--brand-strategy);
+  --table-hover: rgba(255, 255, 255, 0.045);
+  --table-divider: var(--border-hairline);
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 3px;
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 3px !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -145,6 +148,36 @@
 
 .allevo-action-dot {
   background: var(--allevo-text-on-action) !important;
+}
+
+.table-panel {
+  background: var(--panel);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.22);
+}
+
+.table-heading {
+  background: var(--table-hover);
+  border-bottom: 1px solid var(--table-divider);
+  color: var(--table-heading);
+}
+
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  color: inherit;
+  text-align: inherit;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.table-sort-button:hover {
+  background: var(--table-hover);
+  color: var(--text-primary);
 }
 
 html body [data-action-ink="true"],

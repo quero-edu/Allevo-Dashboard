@@ -47,7 +47,7 @@ function isAllowedDashboardUser(suppliedUser: string, expectedUser?: string) {
   return false;
 }
 
-type FunnelSourceType = "standard" | "perpetual-launch";
+type FunnelSourceType = "standard" | "perpetual-launch" | "paid-launch";
 
 type FunnelConfig = {
   id: string;
@@ -415,6 +415,23 @@ type FunnelSourceRows = {
   sourceType: FunnelSourceType;
 };
 
+function filterRealProductSales(rows: any[]) {
+  const valueFor = (row: any, matcher: (header: string) => boolean) => {
+    const entry = Object.entries(row || {}).find(([header]) => matcher(normalizeTabName(header)));
+    return String(entry?.[1] || '').trim();
+  };
+
+  // Some launch workbooks prefill formulas through thousands of empty rows.
+  // A product sale must have the four fields that identify an actual order.
+  return rows.filter((row) => {
+    const date = valueFor(row, (header) => header === 'data' || header.includes('data da compra'));
+    const email = valueFor(row, (header) => header === 'email' || header.includes('e-mail'));
+    const product = valueFor(row, (header) => header === 'produto' || header.includes('produto principal'));
+    const value = valueFor(row, (header) => header === 'valor' || header.includes('faturamento') || header.includes('preco'));
+    return Boolean(date && email && product && value);
+  });
+}
+
 async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows> {
   try {
     // Historical funnels can contain thousands of Meta rows. Give the Google
@@ -435,7 +452,7 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows>
     const sheets = [...workbookXml.matchAll(/<sheet[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"/g)].map((match) => ({ name: match[1], file: relationships[match[2]] }));
     const perpetualFgpTabNames = ["Dados dos Compradores - FGP", "Compradores - FGP", "FGP"];
     const sourceType: FunnelSourceType = sheets.some((sheet) => perpetualFgpTabNames.includes(sheet.name))
-      ? "perpetual-launch"
+      ? "paid-launch"
       : "standard";
     const findRows = async (names: string[], matchesSource?: (rows: any[]) => boolean) => {
       const wanted = new Set(names.map(normalizeTabName));
@@ -484,7 +501,7 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows>
         (rows) => hasHeader(rows, /produto|comprador|e-mail|email/) && hasHeader(rows, /plataforma|acesso a plataforma/)
       )
     ]);
-    return { metaItems, buyerItems, fgpItems, sourceType };
+    return { metaItems, buyerItems, fgpItems: filterRealProductSales(fgpItems), sourceType };
   } catch (error) {
     console.warn("Leitura XLSX das abas de funil falhou; tentando exportação CSV:", error);
     const [metaItems, buyerItems, fgpResult] = await Promise.all([
@@ -497,8 +514,8 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows>
     return {
       metaItems,
       buyerItems,
-      fgpItems: fgpResult.rows,
-      sourceType: fgpResult.found ? "perpetual-launch" : "standard"
+      fgpItems: filterRealProductSales(fgpResult.rows),
+      sourceType: fgpResult.found ? "paid-launch" : "standard"
     };
   }
 }
@@ -989,7 +1006,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
       };
 
       const formatBuyers = (item: any, funnel: FunnelConfig) => {
-        const isPerpetualLaunch = funnel.sourceType === "perpetual-launch";
+        const isPerpetualLaunch = funnel.sourceType === "perpetual-launch" || funnel.sourceType === "paid-launch";
         // Standard sheets use B/C for timestamps. The perpetual-launch model
         // has a named Data column in A, which must remain a local calendar date.
         const buyerValues = Object.values(item || {});
@@ -1009,6 +1026,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
           "Data_Original": rawPurchaseDate,
           "Data_Hora_Formatada": parsedDate.formattedDisplay,
           "timestamp": parsedDate.timestamp,
+          "E-mail": getField(item, "E-mail", "Email", "E-mail do comprador", "Comprador"),
           "Valor": parseSheetNumber(getField(item, "Valor da Transação", "Valor", "Valor Líquido Estimado", "Faturado (Bruto)", "Faturamento", "Preço")),
           "utm_campaign": item["utm_campaign"] || item["Campanha"] || "",
           "utm_source": item["utm_source"] || item["Origem"] || "",

@@ -10,7 +10,7 @@ export interface DashboardFunnel {
   name: string;
   sheetId: string;
   color: string;
-  sourceType?: 'standard' | 'perpetual-launch';
+  sourceType?: 'standard' | 'perpetual-launch' | 'paid-launch';
   builtIn?: boolean;
 }
 

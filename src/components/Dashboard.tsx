@@ -15,6 +15,7 @@ const CampanhasTab = React.lazy(() => import('./tabs/CampanhasTab').then(({ Camp
 const FunilTab = React.lazy(() => import('./tabs/FunilTab').then(({ FunilTab }) => ({ default: FunilTab })));
 const CriativosTab = React.lazy(() => import('./tabs/CriativosTab').then(({ CriativosTab }) => ({ default: CriativosTab })));
 const FontesTab = React.lazy(() => import('./tabs/FontesTab').then(({ FontesTab }) => ({ default: FontesTab })));
+const ProdutosTab = React.lazy(() => import('./tabs/ProdutosTab').then(({ ProdutosTab }) => ({ default: ProdutosTab })));
 
 const ALLEVO_ACTION_INK = '#1A1A1A';
 const ALLEVO_ACTION_STYLE: React.CSSProperties = {
@@ -247,6 +248,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const [activeTab, setActiveTab] = useState('Geral');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [dateRange, setDateRange] = useState('7D');
+  const [includeProductRevenue, setIncludeProductRevenue] = useState(false);
   const [comparePrevious, setComparePrevious] = useState(true);
   const [showMovingAverage, setShowMovingAverage] = useState(false);
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
@@ -470,13 +472,27 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     return () => clearInterval(intervalId);
   }, [selectedProject]);
 
+  const hasPaidLaunchSelected = selectedFunnelIds.some((id) => {
+    const sourceType = funnels.find((funnel) => funnel.id === id)?.sourceType;
+    return sourceType === 'paid-launch' || sourceType === 'perpetual-launch';
+  });
+
   const tabs = [
     { name: 'Geral', icon: LayoutDashboard },
     { name: 'Fontes das Vendas', icon: PieChart },
     { name: 'Funil', icon: Layers },
     { name: 'Campanhas', icon: Megaphone },
-    { name: 'Criativos', icon: Image }
+    { name: 'Criativos', icon: Image },
+    ...(hasPaidLaunchSelected ? [{ name: 'Lançamento', icon: Package }] : [])
   ];
+
+  useEffect(() => {
+    if (activeTab === 'Lançamento' && !hasPaidLaunchSelected) setActiveTab('Geral');
+  }, [activeTab, hasPaidLaunchSelected]);
+
+  useEffect(() => {
+    if (!hasPaidLaunchSelected) setIncludeProductRevenue(false);
+  }, [hasPaidLaunchSelected]);
 
   const dateOptions = ['HOJE', 'ONTEM', 'ONTEM+HOJE', '3D', '7D', '14D', '30D', 'MES_ATUAL', 'MÁXIMO'];
 
@@ -505,6 +521,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       totalRevenueWithSource: 0,
       pagesList: [] as any[],
       dailyMetrics: [] as any[],
+      ticketBuyers: [] as any[],
       fgpBuyers: [] as any[],
       fgpResume: { totalVendas: 0, faturamentoFgp: 0, ticketMedioFgp: 0 }
     };
@@ -617,10 +634,11 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     const investimentoTotal = investimentoCru * 1.1215;
 
     // 3. Geral - Faturamento
-    const faturamentoTotal = filteredBuyers.reduce((acc: number, row: any) => {
+    const faturamentoIngressos = filteredBuyers.reduce((acc: number, row: any) => {
       const valStr = row['Valor'] || row['Valor Bruto'] || row['Preço'] || row['Faturamento'] || row['Valor Pago'] || '0';
       return acc + parseValue(valStr);
     }, 0);
+    const faturamentoTotal = faturamentoIngressos + (includeProductRevenue ? faturamentoFgp : 0);
 
     // 4. Geral - Lucro e Ticket Médio
     const lucroTotal = faturamentoTotal - investimentoTotal;
@@ -765,7 +783,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       return false;
     };
 
-    const vendasTrafego = filteredBuyers.filter(isTrafficSale).length;
+    const vendasTrafego = buyersByDate.filter(isTrafficSale).length;
     const cpaTrafego = vendasTrafego > 0 ? investimentoTotal / vendasTrafego : 0;
     const cpaTotal = vendasIngressos > 0 ? investimentoTotal / vendasIngressos : 0;
     const roas = investimentoTotal > 0 ? faturamentoTotal / investimentoTotal : 0;
@@ -783,14 +801,20 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         if (!date) return false;
         return prevDateFilterPredicate(date);
       });
-
       const prevInvestimentoCru = prevMetaData.reduce((acc: number, row: any) => acc + parseValue(row['Gasto']), 0);
       const prevInvestimentoTotal = prevInvestimentoCru * 1.1215;
 
-      const prevFaturamentoTotal = prevBuyersByDate.reduce((acc: number, row: any) => {
+      const prevFaturamentoIngressos = prevBuyersByDate.reduce((acc: number, row: any) => {
         const valStr = row['Valor'] || row['Valor Bruto'] || row['Preço'] || row['Faturamento'] || row['Valor Pago'] || '0';
         return acc + parseValue(valStr);
       }, 0);
+      const prevFaturamentoProdutos = rawFgpBuyers
+        .filter((row: any) => {
+          const date = row['Data'] || row['Data da Compra'] || row['Criado em'];
+          return Boolean(date) && prevDateFilterPredicate(date);
+        })
+        .reduce((acc: number, row: any) => acc + parseValue(row['Valor'] || row['Valor Bruto'] || row['Preço'] || row['Faturamento'] || row['Valor Pago'] || '0'), 0);
+      const prevFaturamentoTotal = prevFaturamentoIngressos + (includeProductRevenue ? prevFaturamentoProdutos : 0);
 
       const prevLucroTotal = prevFaturamentoTotal - prevInvestimentoTotal;
       const prevVendasIngressos = prevBuyersByDate.length;
@@ -902,7 +926,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
     
     // Mapeamento de vendas por campanha e conjunto
-    filteredBuyers.filter(isTrafficSale).forEach((b: any) => {
+    buyersByDate.filter(isTrafficSale).forEach((b: any) => {
       const campUtm = (b['utm_campaign'] || b['Campanha'] || b['UTM Campaign'] || '').toString();
       const medUtm = (b['utm_medium'] || '').toString();
       const contUtm = (b['utm_content'] || '').toString();
@@ -1160,7 +1184,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     });
 
     
-    filteredBuyers.filter(isTrafficSale).forEach((b: any) => {
+    buyersByDate.filter(isTrafficSale).forEach((b: any) => {
       const termUtm = (b['utm_term'] || '').toString().trim();
       const contUtm = (b['utm_content'] || '').toString().trim();
       const medUtm = (b['utm_medium'] || '').toString().trim();
@@ -1284,6 +1308,16 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       }
     });
 
+    if (includeProductRevenue) {
+      rawFgpBuyers.forEach((row: any) => {
+        const d = row['Data'] || row['Data da Compra'] || row['Criado em'];
+        if (!d) return;
+        const dayData = processDaily(String(d));
+        if (!dayData) return;
+        dayData.faturamentoTotal += parseValue(row['Valor'] || row['Valor Bruto'] || row['Preço'] || row['Faturamento'] || row['Valor Pago'] || '0');
+      });
+    }
+
     // Compute derived single-day values
     let allDailyList = Object.values(allDailyMap).map((d: any) => {
       d.lucroTotal = d.faturamentoTotal - d.investimentoTotal;
@@ -1354,10 +1388,11 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       totalRevenueWithSource,
       pagesList,
       dailyMetrics: dailyMetricsList,
+      ticketBuyers: rawBuyersData,
       fgpBuyers: fgpBuyersByDate,
       fgpResume
     };
-  }, [data, dateRange, comparePrevious]);
+  }, [data, dateRange, comparePrevious, includeProductRevenue]);
 
   const alertsData = useMemo(() => {
     const alerts: any[] = [];
@@ -2083,6 +2118,17 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       </span>
                     ))}
                   </div>
+                  {hasPaidLaunchSelected && (
+                    <label className="mb-4 inline-flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] border border-[#A855F7]/35 bg-[#A855F7]/10 px-3.5 py-2.5 text-sm text-zinc-200 transition-colors hover:border-[#A855F7]/60">
+                      <input
+                        type="checkbox"
+                        checked={includeProductRevenue}
+                        onChange={(event) => setIncludeProductRevenue(event.target.checked)}
+                        className="h-4 w-4 accent-[#A855F7]"
+                      />
+                      <span className="font-medium">Incluir faturamento dos produtos no total global</span>
+                    </label>
+                  )}
                   <div className="flex items-center justify-between gap-4 mb-4">
                     <span className="text-sm font-bold uppercase tracking-[0.08em] text-[#00FFBB] flex items-center gap-1.5">
                       <Zap size={14} className="fill-[#00FFBB]" /> Principais KPIs
@@ -2108,7 +2154,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       id="faturamentoTotal"
                       title="Faturamento Total"
                       value={formatCurrency(geral.faturamentoTotal)}
-                      subtext="Valor Bruto Total"
+                      subtext={includeProductRevenue ? "Ingressos + produtos" : "Valor Bruto de ingressos"}
                       icon={<TrendingUp size={20} />}
                       isHero={true}
                       heroTag="Receita Bruta"
@@ -2134,7 +2180,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       id="ticketMedio"
                       title="Ticket Médio"
                       value={formatCurrency(geral.ticketMedio)}
-                      subtext={`Para ${geral.vendasIngressos} vendas`}
+                      subtext={includeProductRevenue ? `Global / ${geral.vendasIngressos} ingressos` : `Para ${geral.vendasIngressos} vendas`}
                       icon={<Ticket size={20} />}
                       isHero={true}
                       heroTag="Valor Médio"
@@ -2299,6 +2345,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 formatCurrency={formatCurrency}
                 formatNumber={formatNumber}
                 formatPercent={formatPercent}
+              />
+            )}
+
+            {activeTab === 'Lançamento' && hasPaidLaunchSelected && (
+              <ProdutosTab
+                productBuyers={metricsData.fgpBuyers}
+                ticketBuyers={metricsData.ticketBuyers}
+                formatCurrency={formatCurrency}
+                formatNumber={formatNumber}
               />
             )}
             </React.Suspense>

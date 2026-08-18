@@ -23,7 +23,9 @@ export async function fetchSpreadsheetData(project: string = '1', sheetId?: stri
   }
   
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    // A first sync of an archived launch can download a large workbook.
+    // Keep this longer than the server-side Google Sheets export timeout.
+    const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(75000) });
     
     // Check if the response is JSON
     const contentType = response.headers.get('content-type');

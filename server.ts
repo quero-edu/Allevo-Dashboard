@@ -417,7 +417,9 @@ type FunnelSourceRows = {
 
 async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows> {
   try {
-    const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`, { signal: AbortSignal.timeout(15000) });
+    // Historical funnels can contain thousands of Meta rows. Give the Google
+    // export enough time to finish before falling back to the slower CSV path.
+    const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`, { signal: AbortSignal.timeout(60000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const sharedStringsXml = await zip.file("xl/sharedStrings.xml")?.async("text") || "";

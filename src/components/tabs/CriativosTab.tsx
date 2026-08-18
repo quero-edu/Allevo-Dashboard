@@ -34,7 +34,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
 
   return (
     <div className="table-panel overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="p-6 border-b border-[#262626] flex items-center justify-between flex-wrap gap-4">
+      <div className="p-4 sm:p-6 border-b border-[#262626] flex items-center justify-between flex-wrap gap-4">
         <h3 className="text-base font-mono font-bold tracking-tight text-[#00FFBB] uppercase">Performance dos Criativos</h3>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={15} />

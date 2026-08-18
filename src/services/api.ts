@@ -65,6 +65,9 @@ export async function fetchSpreadsheetData(project: string = '1', sheetId?: stri
     if (retryable && (error?.name === 'TimeoutError' || error?.name === 'AbortError')) {
       throw new Error('A planilha demorou mais que o esperado para responder. Tente sincronizar novamente.');
     }
+    if (error instanceof TypeError) {
+      throw new Error('Não foi possível conectar ao dashboard. Verifique sua internet e tente sincronizar novamente.');
+    }
     throw error;
   }
 }

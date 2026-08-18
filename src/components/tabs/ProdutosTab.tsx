@@ -9,7 +9,14 @@ interface ProdutosTabProps {
   formatNumber: (value: number) => string;
 }
 
-const SOURCE_COLORS = ['#A855F7', '#60A5FA', '#22D3EE', '#F59E0B', '#34D399', '#FB7185'];
+const SOURCE_COLORS = [
+  'var(--chart-launch-1)',
+  'var(--chart-management-1)',
+  'var(--chart-management-2)',
+  'var(--chart-neutral-1)',
+  'var(--chart-strategy-2)',
+  'var(--chart-launch-3)'
+];
 
 function parseValue(value: unknown) {
   const normalized = String(value || '').replace(/[^0-9,.-]/g, '');
@@ -110,7 +117,7 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 sm:gap-6">
         <section className="xl:col-span-2 rounded-[8px] border border-white/10 bg-[#151922] p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -142,9 +149,9 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
           </div>
           <div className="divide-y divide-white/[0.06]">
             {attribution.map((source, index) => (
-              <div key={source.name} className="flex items-center justify-between gap-4 px-5 py-3.5">
+              <div key={source.name} className="flex flex-col items-stretch gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
                 <div className="flex min-w-0 items-center gap-3"><span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: SOURCE_COLORS[index % SOURCE_COLORS.length] }} /><span className="truncate font-medium text-zinc-100">{source.name}</span></div>
-                <div className="shrink-0 text-right"><p className="font-mono text-xs font-bold text-zinc-100">{formatNumber(source.sales)} vendas</p><p className="font-mono text-xs text-[#D8B4FE]">{formatCurrency(source.revenue)}</p></div>
+                <div className="shrink-0 text-left sm:text-right"><p className="font-mono text-xs font-bold text-zinc-100">{formatNumber(source.sales)} vendas</p><p className="font-mono text-xs text-[#D8B4FE]">{formatCurrency(source.revenue)}</p></div>
               </div>
             ))}
             {attribution.length === 0 && <p className="px-5 py-12 text-center text-sm text-zinc-500">Nenhuma atribuição encontrada.</p>}
@@ -157,7 +164,7 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
           <div className="border-b border-white/10 px-5 py-4">
             <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Performance por produto</h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de performance por produto. Deslize horizontalmente para ver todas as colunas.">
             <table className="w-full text-left">
               <thead className="border-b border-white/10 bg-white/[0.035] text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
                 <tr><th className="px-5 py-3">Produto</th><th className="px-5 py-3 text-right">Vendas</th><th className="px-5 py-3 text-right">Faturamento</th><th className="px-5 py-3 text-right">Ticket</th></tr>

@@ -7,7 +7,7 @@ import {
 import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchDashboardFunnels, fetchSpreadsheetData, updateDashboardFunnel } from '../services/api';
 import { cn } from '../lib/utils';
 import { filterByDate, buildDateFilter, buildPreviousDateFilter, getPreviousPeriodLabel, calculateComparison, parseValue, formatCurrency, formatPercent, formatNumber, parseUtcToUtcMinus3 } from '../lib/metrics';
-import { AuthUser } from './AuthGate';
+import type { AuthUser } from '../types/auth';
 import { LightboxModal } from './tabs/LightboxModal';
 
 const DailyChartSection = React.lazy(() => import('./tabs/DailyChartSection').then(({ DailyChartSection }) => ({ default: DailyChartSection })));
@@ -174,7 +174,7 @@ function MetricCard({
 
       {/* COMPARISON BADGE */}
       {comparison && (
-        <div data-metric-comparison className="mt-3 pt-2.5 border-t border-[#262626] flex items-center justify-between gap-2">
+        <div data-metric-comparison className="mt-3 pt-2.5 border-t border-[#262626] flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className={cn(
             "inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] font-sans font-bold text-xs tracking-wide shrink-0",
             comparison.isGood 
@@ -192,10 +192,10 @@ function MetricCard({
           </div>
 
           <div 
-            className="font-sans text-xs text-zinc-400 font-medium truncate text-right flex items-center gap-1 justify-end min-w-0"
+            className="font-sans text-xs text-zinc-400 font-medium flex w-full min-w-0 items-center gap-1 sm:w-auto sm:justify-end"
             title={comparison.prevFormatted ? `Valor no período anterior: ${comparison.prevFormatted}` : undefined}
           >
-            <span className="truncate">{comparisonLabel || 'vs. anterior'}</span>
+            <span className="truncate text-left sm:text-right">{comparisonLabel || 'vs. anterior'}</span>
             {comparison.prevFormatted && (
               <span className="text-zinc-200 font-bold bg-[#242424] px-1.5 py-0.5 rounded-[4px] border border-[#262626] shrink-0 text-xs">
                 ({comparison.prevFormatted})
@@ -232,7 +232,15 @@ function getLabelForDateRange(range: string, custom: { start: string; end: strin
   return labels[range] || range;
 }
 
-const COLORS = ['#00FFBB', '#66BEFF', '#F59E0B', '#A855F7', '#F43F5E', '#38BDF8', '#10B981'];
+const COLORS = [
+  'var(--chart-strategy-1)',
+  'var(--chart-management-1)',
+  'var(--chart-neutral-1)',
+  'var(--chart-launch-1)',
+  'var(--metric-risk)',
+  'var(--chart-management-2)',
+  'var(--chart-strategy-2)'
+];
 
 interface DashboardProps {
   authUser?: AuthUser | null;
@@ -281,15 +289,19 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   // Profile dropdown menu state, Date picker popover state, & Mobile Nav Tab Dropdown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
 
   const [isDateMenuOpen, setIsDateMenuOpen] = useState(false);
   const dateMenuRef = useRef<HTMLDivElement>(null);
+  const dateMenuButtonRef = useRef<HTMLButtonElement>(null);
 
   const [isFunnelMenuOpen, setIsFunnelMenuOpen] = useState(false);
   const funnelMenuRef = useRef<HTMLDivElement>(null);
+  const funnelMenuButtonRef = useRef<HTMLButtonElement>(null);
 
   const [isTabMenuOpen, setIsTabMenuOpen] = useState(false);
   const tabMenuRef = useRef<HTMLDivElement>(null);
+  const tabMenuButtonRef = useRef<HTMLButtonElement>(null);
   const modalRef = useRef<HTMLElement>(null);
 
   // Lightbox Zoom State
@@ -314,6 +326,33 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const closeOpenMenus = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+
+      if (isProfileMenuOpen) {
+        setIsProfileMenuOpen(false);
+        profileMenuButtonRef.current?.focus();
+      } else if (isFunnelMenuOpen) {
+        setIsFunnelMenuOpen(false);
+        funnelMenuButtonRef.current?.focus();
+      } else if (isDateMenuOpen) {
+        setIsDateMenuOpen(false);
+        dateMenuButtonRef.current?.focus();
+      } else if (isTabMenuOpen) {
+        setIsTabMenuOpen(false);
+        tabMenuButtonRef.current?.focus();
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+    };
+
+    document.addEventListener('keydown', closeOpenMenus);
+    return () => document.removeEventListener('keydown', closeOpenMenus);
+  }, [isProfileMenuOpen, isFunnelMenuOpen, isDateMenuOpen, isTabMenuOpen]);
 
   useEffect(() => {
     const isModalOpen = isAddFunnelConfirmOpen || isAddFunnelModalOpen || Boolean(funnelPendingDelete);
@@ -464,9 +503,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   useEffect(() => {
     loadData(selectedProject);
     
-    // Auto-refresh da página a cada 5 minutos
+    // Keep data fresh without interrupting someone working in another tab.
     const intervalId = setInterval(() => {
-      loadData(selectedProject);
+      if (!document.hidden) loadData(selectedProject);
     }, 5 * 60 * 1000);
 
     return () => clearInterval(intervalId);
@@ -1649,8 +1688,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             {authUser && (
               <div className="relative shrink-0" ref={profileMenuRef}>
                 <button
+                  ref={profileMenuButtonRef}
                   onClick={() => setIsProfileMenuOpen(prev => !prev)}
-                  className="flex items-center gap-2 px-2.5 py-1.5 sm:py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-xs focus:outline-none shadow-sm group"
+                  aria-label="Abrir menu da conta"
+                  aria-expanded={isProfileMenuOpen}
+                  aria-haspopup="menu"
+                  aria-controls="profile-menu"
+                  className="min-h-11 flex items-center gap-2 px-2.5 py-1.5 sm:py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-xs focus:outline-none shadow-sm group"
                   title="Sua Conta & Permissões Corporativas"
                 >
                   <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-[6px] bg-[#00FFBB]/15 text-[#00FFBB] border border-[#00FFBB]/30 flex items-center justify-center font-mono font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
@@ -1672,7 +1716,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
                 {/* Collapsed Dropdown Menu */}
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 md:left-0 md:right-auto top-full mt-2 w-72 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div id="profile-menu" role="menu" className="absolute right-0 md:left-0 md:right-auto top-full mt-2 w-72 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                     {/* Account Header */}
                     <div className="p-3 bg-[#242424] border border-[#262626] rounded-[8px] flex items-center gap-3 mb-1">
                       <div className="w-9 h-9 rounded-[8px] bg-[#00FFBB]/15 text-[#00FFBB] border border-[#00FFBB]/30 flex items-center justify-center font-mono font-bold text-sm shrink-0">
@@ -1697,11 +1741,12 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                     <div className="space-y-1">
                       {onOpenSecuritySettings && (
                         <button
+                          role="menuitem"
                           onClick={() => {
                             setIsProfileMenuOpen(false);
                             onOpenSecuritySettings();
                           }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] hover:bg-[#242424] text-zinc-200 hover:text-[#00FFBB] text-xs font-bold transition-colors text-left"
+                          className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] hover:bg-[#242424] text-zinc-200 hover:text-[#00FFBB] text-xs font-bold transition-colors text-left"
                         >
                           <Shield size={15} className="text-[#00FFBB]" />
                           <div className="flex flex-col">
@@ -1713,11 +1758,12 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
                       {onLogout && (
                         <button
+                          role="menuitem"
                           onClick={() => {
                             setIsProfileMenuOpen(false);
                             onLogout();
                           }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 text-xs font-bold transition-colors text-left mt-1"
+                          className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 text-xs font-bold transition-colors text-left mt-1"
                         >
                           <LogOut size={15} className="text-rose-400" />
                           <span>Sair da Conta</span>
@@ -1732,17 +1778,19 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto">
-          <div className="relative shrink-0" ref={funnelMenuRef}>
+        <div className="grid w-full grid-cols-[minmax(0,1fr)_2.75rem] items-center gap-2 sm:flex sm:flex-wrap sm:gap-2.5 xl:w-auto">
+          <div className="relative col-span-2 min-w-0 sm:col-auto sm:shrink-0" ref={funnelMenuRef}>
             <button
+              ref={funnelMenuButtonRef}
               onClick={() => setIsFunnelMenuOpen(prev => !prev)}
               aria-expanded={isFunnelMenuOpen}
               aria-haspopup="menu"
-              className="min-h-11 flex items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-sm font-semibold focus:outline-none shadow-sm"
+              aria-controls="funnel-menu"
+              className="min-h-11 flex w-full items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-sm font-semibold focus:outline-none shadow-sm sm:w-auto"
             >
               <Layers size={16} className="text-[#00FFBB]" />
               <span className="text-zinc-400">Funis</span>
-              <span className="text-zinc-100 hidden sm:inline">
+              <span className="hidden min-w-0 truncate text-zinc-100 sm:inline sm:max-w-60">
                 {selectedFunnelTags.length === funnels.length && funnels.length > 1
                   ? 'Todos os funis'
                   : selectedFunnelTags.length === 1
@@ -1753,7 +1801,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             </button>
 
             {isFunnelMenuOpen && (
-              <div role="menu" className="absolute left-0 top-full mt-2 w-80 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-50">
+              <div id="funnel-menu" role="menu" className="absolute left-0 top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-50">
                 <p className="px-2.5 py-2 text-xs text-zinc-400">Selecione os funis para consolidar a análise.</p>
                 {funnels.map((funnel) => {
                   const isSelected = selectedFunnelIds.includes(funnel.id);
@@ -1769,10 +1817,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: funnel.color }} />
                         <span className="text-sm font-medium text-zinc-100 min-w-0 truncate">{funnel.name}</span>
                       </button>
-                      <button type="button" onClick={() => openFunnelEditor(funnel)} title={`Editar ${funnel.name}`} aria-label={`Editar ${funnel.name}`} className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-[6px] text-zinc-300 hover:bg-white/10 hover:text-white">
+                      <button type="button" role="menuitem" onClick={() => openFunnelEditor(funnel)} title={`Editar ${funnel.name}`} aria-label={`Editar ${funnel.name}`} className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-[6px] text-zinc-300 hover:bg-white/10 hover:text-white">
                         <Pencil size={14} />
                       </button>
-                      <button type="button" onClick={() => { setIsFunnelMenuOpen(false); setFunnelPendingDelete(funnel); }} title={`Remover ${funnel.name}`} aria-label={`Remover ${funnel.name}`} className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-[6px] text-rose-300 hover:bg-rose-500/15 hover:text-rose-100">
+                      <button type="button" role="menuitem" onClick={() => { setIsFunnelMenuOpen(false); setFunnelPendingDelete(funnel); }} title={`Remover ${funnel.name}`} aria-label={`Remover ${funnel.name}`} className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-[6px] text-rose-300 hover:bg-rose-500/15 hover:text-rose-100">
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -1780,6 +1828,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 })}
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={() => {
                     setIsFunnelMenuOpen(false);
                     setIsAddFunnelConfirmOpen(true);
@@ -1793,30 +1842,36 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           </div>
 
           {/* Compact Popover Date Range Selector */}
-          <div className="relative shrink-0" ref={dateMenuRef}>
+          <div className="relative min-w-0 sm:shrink-0" ref={dateMenuRef}>
             <button
+              ref={dateMenuButtonRef}
               onClick={() => setIsDateMenuOpen(prev => !prev)}
-              className="min-h-11 flex items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-xs font-bold focus:outline-none shadow-sm group"
+              aria-label="Abrir filtro de período"
+              aria-expanded={isDateMenuOpen}
+              aria-haspopup="dialog"
+              aria-controls="date-range-menu"
+              className="min-h-11 flex w-full min-w-0 items-center gap-2 px-3 py-2 bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 rounded-[8px] transition-all text-xs font-bold focus:outline-none shadow-sm group sm:w-auto"
               title="Filtrar Período de Análise"
             >
               <Calendar size={14} className="text-[#00FFBB]" />
-              <div className="flex items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <span className="text-zinc-400 font-medium text-xs">Período:</span>
-                <span className="text-[#00FFBB] font-mono font-bold">{getLabelForDateRange(dateRange, customDates)}</span>
+                <span className="max-w-36 truncate text-[#00FFBB] font-mono font-bold sm:max-w-none">{getLabelForDateRange(dateRange, customDates)}</span>
               </div>
               <ChevronDown size={14} className={cn("text-zinc-400 transition-transform duration-200 ml-0.5", isDateMenuOpen && "rotate-180 text-[#00FFBB]")} />
             </button>
 
             {/* Popover Dropdown */}
             {isDateMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-[#1C1C1C] border border-[#262626] rounded-[8px] shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div id="date-range-menu" role="dialog" aria-label="Selecionar período" className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-[#1C1C1C] border border-[#262626] rounded-[8px] shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#262626]">
                   <span className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar size={14} className="text-[#00FFBB]" /> Selecionar Período
                   </span>
                   <button 
                     onClick={() => setIsDateMenuOpen(false)}
-                    className="text-zinc-500 hover:text-zinc-300 p-1"
+                    aria-label="Fechar filtro de período"
+                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-[6px] text-zinc-500 hover:text-zinc-300"
                   >
                     <X size={14} />
                   </button>
@@ -1943,7 +1998,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         </div>
       </header>
 
-      <main className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="max-w-[1600px] mx-auto p-3 sm:p-6 lg:p-8">
+        <h1 className="sr-only">Dashboard de performance AllevoTech</h1>
         <div className="flex items-start gap-4 xl:gap-6">
           <aside className={cn("hidden lg:block sticky top-24 shrink-0 transition-[width] duration-200", isSidebarCollapsed ? "w-[58px]" : "w-52")}>
             <div className="bg-[#151922] border border-white/10 rounded-[8px] p-2 shadow-[0_12px_34px_rgba(0,0,0,0.18)]">
@@ -1988,7 +2044,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
           <section className="min-w-0 flex-1">
         {fetchError && (
-          <div role="alert" aria-live="assertive" className="mb-8 p-6 bg-[#1C1C1C] border border-[#00FFBB]/50 rounded-[8px] shadow-lg text-zinc-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div role="alert" aria-live="assertive" className="mb-6 p-4 sm:p-6 bg-[#1C1C1C] border border-[#00FFBB]/50 rounded-[8px] shadow-lg text-zinc-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-[#00FFBB]/15 text-[#00FFBB] border border-[#00FFBB]/30 rounded-[8px] shrink-0">
                 <AlertTriangle size={26} />
@@ -2018,7 +2074,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               disabled={loading}
               data-action-ink="true"
               style={ALLEVO_ACTION_STYLE}
-              className="allevo-action btn-primary-green px-5 py-3 bg-[#00FFBB] !text-[#1A1A1A] font-mono font-black rounded-[8px] text-sm shadow-md transition-colors shrink-0 flex items-center gap-2 self-stretch md:self-auto justify-center cursor-pointer"
+              className="allevo-action btn-primary-green min-h-11 px-5 py-3 bg-[#00FFBB] !text-[#1A1A1A] font-mono font-black rounded-[8px] text-sm shadow-md transition-colors shrink-0 flex items-center gap-2 self-stretch md:self-auto justify-center cursor-pointer"
             >
               <RotateCcw size={16} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A] shrink-0", loading && "animate-spin")} />
               <span style={ALLEVO_ACTION_TEXT_STYLE} className="!text-[#1A1A1A] font-black">Tentar Novamente</span>
@@ -2028,7 +2084,12 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         
             <div className="lg:hidden w-full relative mb-5" ref={tabMenuRef}>
               <button
+                ref={tabMenuButtonRef}
                 onClick={() => setIsTabMenuOpen(prev => !prev)}
+                aria-label="Abrir navegação"
+                aria-expanded={isTabMenuOpen}
+                aria-haspopup="menu"
+                aria-controls="mobile-navigation-menu"
                 className="w-full flex items-center justify-between px-4 py-3 bg-[#1C1C1C] border border-[#262626] hover:border-[#383838] rounded-[8px] text-white font-bold text-sm shadow-lg focus:outline-none transition-all"
               >
                 <div className="flex items-center gap-2.5">
@@ -2047,13 +2108,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               </button>
 
               {isTabMenuOpen && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1">
+                <div id="mobile-navigation-menu" role="menu" className="absolute left-0 right-0 top-full mt-2 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1">
                   {tabs.map(tab => {
                     const isActive = activeTab === tab.name;
                     const TabIcon = tab.icon;
                     return (
                       <button
                         key={tab.name}
+                        role="menuitemradio"
+                        aria-checked={isActive}
                         data-active-tab={isActive ? "true" : undefined}
                         data-active-green={isActive ? "true" : undefined}
                         data-action-ink={isActive ? "true" : undefined}
@@ -2112,9 +2175,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   <div className="flex flex-wrap items-center gap-2 mb-3" aria-label="Funis selecionados">
                     <span className="text-xs font-semibold text-zinc-500">Funis</span>
                     {selectedFunnelTags.map((funnel) => (
-                      <span key={funnel.id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-zinc-200">
+                      <span key={funnel.id} title={funnel.name} className="inline-flex max-w-full items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-zinc-200">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: funnel.color }} />
-                        {funnel.name}
+                        <span className="truncate">{funnel.name}</span>
                       </span>
                     ))}
                   </div>
@@ -2387,10 +2450,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               O dashboard vai validar a planilha e incluir o funil automaticamente na seleção e nos relatórios.
             </p>
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setIsAddFunnelConfirmOpen(false)} className="min-h-10 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06]">
+              <button type="button" onClick={() => setIsAddFunnelConfirmOpen(false)} className="min-h-11 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06]">
                 Cancelar
               </button>
-              <button type="button" onClick={() => { setIsAddFunnelConfirmOpen(false); setIsAddFunnelModalOpen(true); }} style={ALLEVO_ACTION_STYLE} className="allevo-action min-h-10 rounded-[6px] px-4 text-sm font-bold !text-[#1A1A1A]">
+              <button type="button" onClick={() => { setIsAddFunnelConfirmOpen(false); setIsAddFunnelModalOpen(true); }} style={ALLEVO_ACTION_STYLE} className="allevo-action min-h-11 rounded-[6px] px-4 text-sm font-bold !text-[#1A1A1A]">
                 Continuar
               </button>
             </div>

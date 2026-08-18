@@ -28,10 +28,10 @@ export const FontesTab: React.FC<FontesTabProps> = ({
   formatPercent
 }) => {
   return (
-    <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="flex flex-col gap-5 sm:gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8">
         {/* Distribuição por Fonte */}
-        <div className="lg:col-span-4 bg-[#1C1C1C] rounded-[8px] border border-[#262626] p-6 shadow-xl flex flex-col min-h-[600px] h-fit">
+        <div className="lg:col-span-4 bg-[#1C1C1C] rounded-[8px] border border-[#262626] p-4 sm:p-6 shadow-xl flex flex-col h-fit lg:min-h-[600px]">
           <div className="mb-4">
             <h3 className="text-base font-mono font-bold tracking-tight text-[#00FFBB] uppercase">Distribuição por Fonte</h3>
             <p className="text-xs font-mono font-medium text-zinc-400 uppercase tracking-wider mt-1">Origem das Vendas Captadas</p>
@@ -119,7 +119,7 @@ export const FontesTab: React.FC<FontesTabProps> = ({
         </div>
 
         {/* Ranking de Fontes */}
-        <div className="lg:col-span-8 bg-[#1C1C1C] rounded-[8px] border border-[#262626] p-6 shadow-xl overflow-hidden flex flex-col max-h-[800px]">
+        <div className="lg:col-span-8 bg-[#1C1C1C] rounded-[8px] border border-[#262626] p-4 sm:p-6 shadow-xl overflow-hidden flex flex-col lg:max-h-[800px]">
           <div className="mb-6 flex-shrink-0">
             <h3 className="text-base font-mono font-bold tracking-tight text-[#00FFBB] uppercase">Ranking de Fontes</h3>
             <p className="text-xs font-mono font-medium text-zinc-400 uppercase tracking-wider mt-1">Performance por Canal de Aquisição</p>
@@ -230,7 +230,7 @@ export const FontesTab: React.FC<FontesTabProps> = ({
 
       {/* Análise de Vendas por Página */}
       <div className="bg-[#151922] rounded-[8px] border border-white/10 shadow-[0_18px_52px_rgba(0,0,0,0.22)] overflow-hidden flex flex-col mt-2">
-        <div className="p-6 border-b border-[#262626]">
+        <div className="p-4 sm:p-6 border-b border-[#262626]">
           <h3 className="text-base font-mono font-bold tracking-tight text-[#00FFBB] uppercase">Análise de Vendas por Página</h3>
           <p className="text-xs font-mono font-medium text-zinc-400 uppercase tracking-wider mt-1">Tráfego gerado x Vendas convertidas</p>
         </div>

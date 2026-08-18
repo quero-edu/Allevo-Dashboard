@@ -47,7 +47,18 @@ function isAllowedDashboardUser(suppliedUser: string, expectedUser?: string) {
   return false;
 }
 
-const DEFAULT_FUNNELS = [
+type FunnelSourceType = "standard" | "perpetual-launch";
+
+type FunnelConfig = {
+  id: string;
+  name: string;
+  sheetId: string;
+  color: string;
+  builtIn?: boolean;
+  sourceType?: FunnelSourceType;
+};
+
+const DEFAULT_FUNNELS: FunnelConfig[] = [
   {
     id: "estrategia",
     name: "Livro Estratégia em Ação",
@@ -63,8 +74,6 @@ const DEFAULT_FUNNELS = [
     builtIn: true
   }
 ];
-
-type FunnelConfig = (typeof DEFAULT_FUNNELS)[number] & { builtIn?: boolean };
 
 const FUNNEL_CONFIG_PATH = process.env.DASHBOARD_FUNNELS_PATH || path.join(process.cwd(), "data", "funnels.json");
 const CUSTOM_FUNNEL_COLORS = ["#F97316", "#E879F9", "#A3E635", "#38BDF8", "#C084FC"];
@@ -100,7 +109,7 @@ async function saveCustomFunnels(funnels: FunnelConfig[]) {
       const updated = funnels.find((funnel) => funnel.id === defaultFunnel.id);
       if (!updated) return [];
       const override = Object.fromEntries(
-        (["name", "sheetId", "color"] as const)
+        (["name", "sheetId", "color", "sourceType"] as const)
           .filter((key) => updated[key] !== defaultFunnel[key])
           .map((key) => [key, updated[key]])
       );
@@ -261,10 +270,10 @@ async function fetchCsvFromKnownTabs(sheetId: string, tabNames: string[], fallba
 }
 
 async function validateFunnelSource(sheetId: string) {
-  const [metaRows, buyerRows] = await fetchFunnelSourceRows(sheetId);
-  if (metaRows.length === 0 || buyerRows.length === 0) {
-    throw new Error("A planilha precisa ter dados nas abas de Meta e Compradores antes de ser cadastrada.");
-  }
+  // An empty, correctly structured sheet is a valid funnel waiting for its launch.
+  // fetchFunnelSourceRows still rejects missing or inaccessible source tabs.
+  const { sourceType } = await fetchFunnelSourceRows(sheetId);
+  return sourceType;
 }
 // Cache bounded by time: previews must not block every dashboard sync.
 const INSTAGRAM_THUMB_TTL_MS = 6 * 60 * 60 * 1000;
@@ -399,7 +408,14 @@ function parseWorksheetRows(sheetXml: string, strings: string[]): any[] {
     ));
 }
 
-async function fetchFunnelSourceRows(sheetId: string): Promise<[any[], any[]]> {
+type FunnelSourceRows = {
+  metaItems: any[];
+  buyerItems: any[];
+  fgpItems: any[];
+  sourceType: FunnelSourceType;
+};
+
+async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows> {
   try {
     const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -415,6 +431,10 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<[any[], any[]]> {
         .map((match) => [match[1], match[2].startsWith("/") ? match[2].slice(1) : `xl/${match[2]}`])
     );
     const sheets = [...workbookXml.matchAll(/<sheet[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"/g)].map((match) => ({ name: match[1], file: relationships[match[2]] }));
+    const perpetualFgpTabNames = ["Dados dos Compradores - FGP", "Compradores - FGP", "FGP"];
+    const sourceType: FunnelSourceType = sheets.some((sheet) => perpetualFgpTabNames.includes(sheet.name))
+      ? "perpetual-launch"
+      : "standard";
     const findRows = async (names: string[], matchesSource?: (rows: any[]) => boolean) => {
       const wanted = new Set(names.map(normalizeTabName));
       const sheet = sheets.find((item) => wanted.has(normalizeTabName(item.name)) && item.file);
@@ -441,7 +461,14 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<[any[], any[]]> {
       throw new Error(`Aba não encontrada: ${names[0]}. Abas disponíveis: ${sheets.map((item) => item.name).join(", ")}`);
     };
     const hasHeader = (rows: any[], pattern: RegExp) => Object.keys(rows[0] || {}).some((header) => pattern.test(normalizeTabName(header)));
-    return await Promise.all([
+    const findOptionalRows = async (names: string[], matchesSource?: (rows: any[]) => boolean) => {
+      try {
+        return await findRows(names, matchesSource);
+      } catch {
+        return [];
+      }
+    };
+    const [metaItems, buyerItems, fgpItems] = await Promise.all([
       findRows(
         ["Dados Meta Ads", "Meta Ads", "Dados da Meta"],
         (rows) => hasHeader(rows, /impressoes|nome do anuncio|nome da campanha|alcance/)
@@ -449,14 +476,28 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<[any[], any[]]> {
       findRows(
         ["Vendas", "Dados dos Compradores", "Compradores"],
         (rows) => hasHeader(rows, /produto|order bump|transacao|comprador|e-mail|email/)
+      ),
+      findOptionalRows(
+        perpetualFgpTabNames,
+        (rows) => hasHeader(rows, /produto|comprador|e-mail|email/) && hasHeader(rows, /plataforma|acesso a plataforma/)
       )
     ]);
+    return { metaItems, buyerItems, fgpItems, sourceType };
   } catch (error) {
     console.warn("Leitura XLSX das abas de funil falhou; tentando exportação CSV:", error);
-    return Promise.all([
+    const [metaItems, buyerItems, fgpResult] = await Promise.all([
       fetchCsvFromKnownTabs(sheetId, ["Dados Meta Ads", "Meta Ads", "Dados da Meta"], "57289144"),
-      fetchCsvFromKnownTabs(sheetId, ["Vendas", "Dados dos Compradores", "Compradores"], "0")
+      fetchCsvFromKnownTabs(sheetId, ["Vendas", "Dados dos Compradores", "Compradores"], "0"),
+      fetchCsvByTabName("Dados dos Compradores - FGP", sheetId)
+        .then((rows) => ({ rows, found: true }))
+        .catch(() => ({ rows: [], found: false }))
     ]);
+    return {
+      metaItems,
+      buyerItems,
+      fgpItems: fgpResult.rows,
+      sourceType: fgpResult.found ? "perpetual-launch" : "standard"
+    };
   }
 }
 
@@ -718,7 +759,7 @@ async function startServer() {
         return res.status(409).json({ error: "Essa planilha já está cadastrada em um funil." });
       }
 
-      await validateFunnelSource(sheetId);
+      const sourceType = await validateFunnelSource(sheetId);
 
       const customFunnels = funnels.filter((funnel) => !funnel.builtIn);
       const funnel: FunnelConfig = {
@@ -726,6 +767,7 @@ async function startServer() {
         name,
         sheetId,
         color: CUSTOM_FUNNEL_COLORS[customFunnels.length % CUSTOM_FUNNEL_COLORS.length],
+        sourceType,
         builtIn: false
       };
       await saveCustomFunnels([...funnels, funnel]);
@@ -755,8 +797,8 @@ async function startServer() {
         return res.status(409).json({ error: "Essa planilha já está cadastrada em outro funil." });
       }
 
-      await validateFunnelSource(sheetId);
-      const updated: FunnelConfig = { ...funnel, name, sheetId };
+      const sourceType = await validateFunnelSource(sheetId);
+      const updated: FunnelConfig = { ...funnel, name, sheetId, sourceType };
       await saveCustomFunnels(funnels.map((item) => item.id === funnel.id ? updated : item));
       res.json({ funnel: updated });
     } catch (error: any) {
@@ -935,16 +977,28 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
   };
 }
 
-      const formatBuyers = (item: any, funil: string) => {
-        // Column B carries the source purchase timestamp. Use C only when B is empty.
-        // Both values are converted from UTC to UTC-3 below.
+      const normalizePerpetualProduct = (value: string) => {
+        const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        if (normalized.includes("formacao gp")) return "Formação GP";
+        if (normalized.includes("acesso vitalicio")) return "Acesso PDZ";
+        if (normalized.includes("gravacao")) return "Gravação PDZ";
+        if (normalized.includes("projeto do zero")) return "Projeto do Zero";
+        return value;
+      };
+
+      const formatBuyers = (item: any, funnel: FunnelConfig) => {
+        const isPerpetualLaunch = funnel.sourceType === "perpetual-launch";
+        // Standard sheets use B/C for timestamps. The perpetual-launch model
+        // has a named Data column in A, which must remain a local calendar date.
         const buyerValues = Object.values(item || {});
-        const rawPurchaseDate = String(buyerValues[1] || buyerValues[2] || "").trim();
-        // The sales sheets keep the offer data in fixed columns: L = main product,
-        // O = accepted order bump. Read the positions so different header labels do
-        // not break the dashboard's commercial metrics.
-        const produtoPrincipal = String(item["Produto Principal"] || item["Produto"] || buyerValues[11] || "").trim();
-        const orderBump = String(item["Order Bump"] || item["Order bump"] || buyerValues[14] || "").trim();
+        const rawPurchaseDate = isPerpetualLaunch
+          ? getField(item, "Data", "Data da Compra", "Criado em")
+          : String(buyerValues[1] || buyerValues[2] || "").trim();
+        const rawProduct = isPerpetualLaunch
+          ? getField(item, "Produto", "Produto Principal", "Oferta")
+          : String(item["Produto Principal"] || item["Produto"] || buyerValues[11] || "").trim();
+        const produtoPrincipal = isPerpetualLaunch ? normalizePerpetualProduct(rawProduct) : rawProduct;
+        const orderBump = isPerpetualLaunch ? "" : String(item["Order Bump"] || item["Order bump"] || buyerValues[14] || "").trim();
 
         const parsedDate = parseUtcToUtcMinus3(rawPurchaseDate);
 
@@ -953,7 +1007,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
           "Data_Original": rawPurchaseDate,
           "Data_Hora_Formatada": parsedDate.formattedDisplay,
           "timestamp": parsedDate.timestamp,
-          "Valor": parseFloat((item["Valor da Transação"] || item["Valor"] || item["Valor Líquido Estimado"] || '0').replace(',', '.')),
+          "Valor": parseSheetNumber(getField(item, "Valor da Transação", "Valor", "Valor Líquido Estimado", "Faturado (Bruto)", "Faturamento", "Preço")),
           "utm_campaign": item["utm_campaign"] || item["Campanha"] || "",
           "utm_source": item["utm_source"] || item["Origem"] || "",
           "utm_medium": item["utm_medium"] || item["Medium"] || "",
@@ -962,7 +1016,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
           "Produto": produtoPrincipal,
           "Produto Principal": produtoPrincipal,
           "Order Bump": orderBump,
-          "Funil": funil
+          "Funil": funnel.name
         };
       };
 
@@ -978,19 +1032,21 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
         const creativeError = criativosResult.status === "rejected"
           ? (criativosResult.reason?.message || "Não foi possível ler a aba de Criativos.")
           : null;
-        const [metaItems, compradoresItems] = funnelSourceResult.status === "fulfilled"
+        const { metaItems, buyerItems: compradoresItems, fgpItems } = funnelSourceResult.status === "fulfilled"
           ? funnelSourceResult.value
-          : [[], []];
+          : { metaItems: [], buyerItems: [], fgpItems: [] };
         const criativosItems = criativosResult.status === "fulfilled" ? criativosResult.value : [];
 
         return {
           funnel,
           metaItems,
           compradoresItems,
+          fgpItems,
           criativosItems,
           diagnostics: {
             metaRows: metaItems.length,
             buyerRows: compradoresItems.length,
+            fgpRows: fgpItems.length,
             creativeRows: criativosItems.length,
             sourceError,
             creativeError
@@ -1000,7 +1056,8 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
 
       const data: any = {
         "Dados da Meta": sources.flatMap(({ funnel, metaItems }) => metaItems.map((item) => formatMeta(item, funnel.name))),
-        "Dados dos Compradores": sources.flatMap(({ funnel, compradoresItems }) => compradoresItems.map((item) => formatBuyers(item, funnel.name))),
+        "Dados dos Compradores": sources.flatMap(({ funnel, compradoresItems }) => compradoresItems.map((item) => formatBuyers(item, funnel))),
+        "Dados dos Compradores - FGP": sources.flatMap(({ funnel, fgpItems }) => fgpItems.map((item) => formatBuyers(item, funnel))),
         "Link dos criativos": sources.flatMap(({ criativosItems }) => criativosItems)
       };
 

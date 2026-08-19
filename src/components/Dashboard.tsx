@@ -580,15 +580,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     });
 
     const buyersByDate = rawBuyersData.filter((row: any) => {
-      // Assuming 'Data' or similar exists for buyers, else fallback to max / true if missing
       const date = row['Data'] || row['Data da Compra'] || row['Criado em'];
-      if (!date) return true; // If no date column found, keep it
+      if (!date) return false;
       return dateFilterPredicate(date);
     });
 
     const fgpBuyersByDate = rawFgpBuyers.filter((row: any) => {
       const date = row['Data'] || row['Data da Compra'] || row['Criado em'];
-      if (!date) return true;
+      if (!date) return false;
       return dateFilterPredicate(date);
     });
 

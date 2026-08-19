@@ -432,6 +432,25 @@ function filterRealProductSales(rows: any[]) {
   });
 }
 
+function filterRealBuyerSales(rows: any[]) {
+  const valueFor = (row: any, matcher: (header: string) => boolean) => {
+    const entry = Object.entries(row || {}).find(([header]) => matcher(normalizeTabName(header)));
+    return String(entry?.[1] || '').trim();
+  };
+
+  // Exports XLSX can retain blank/formula rows after the actual sales. Those
+  // rows must not reach period totals, even when a worksheet has formatting.
+  return rows.filter((row) => {
+    const values = Object.values(row || {}).map((value) => String(value || '').trim());
+    const date = valueFor(row, (header) => header === 'data' || header.includes('data da compra') || header.includes('criado em')) || values[1] || values[2] || '';
+    const email = valueFor(row, (header) => header === 'email' || header.includes('e-mail')) || values[4] || '';
+    const product = valueFor(row, (header) => header === 'produto principal' || header === 'produto' || header.includes('oferta')) || values[11] || '';
+    const transactionId = valueFor(row, (header) => header.includes('id da compra') || header.includes('id da transacao')) || values[0] || '';
+    const value = valueFor(row, (header) => header.includes('valor da transacao') || header === 'valor' || header.includes('valor liquido') || header.includes('faturamento') || header.includes('preco')) || values[12] || '';
+    return Boolean(date && product && (email || transactionId) && (transactionId || value));
+  });
+}
+
 async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows> {
   try {
     // Historical funnels can contain thousands of Meta rows. Give the Google
@@ -501,7 +520,7 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows>
         (rows) => hasHeader(rows, /produto|comprador|e-mail|email/) && hasHeader(rows, /plataforma|acesso a plataforma/)
       )
     ]);
-    return { metaItems, buyerItems, fgpItems: filterRealProductSales(fgpItems), sourceType };
+    return { metaItems, buyerItems: filterRealBuyerSales(buyerItems), fgpItems: filterRealProductSales(fgpItems), sourceType };
   } catch (error) {
     console.warn("Leitura XLSX das abas de funil falhou; tentando exportação CSV:", error);
     const [metaItems, buyerItems, fgpResult] = await Promise.all([
@@ -513,7 +532,7 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows>
     ]);
     return {
       metaItems,
-      buyerItems,
+      buyerItems: filterRealBuyerSales(buyerItems),
       fgpItems: filterRealProductSales(fgpResult.rows),
       sourceType: fgpResult.found ? "paid-launch" : "standard"
     };

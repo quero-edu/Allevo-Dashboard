@@ -7,8 +7,14 @@ import {
 import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchDashboardFunnels, fetchSpreadsheetData, updateDashboardFunnel } from '../services/api';
 import { cn } from '../lib/utils';
 import { filterByDate, buildDateFilter, buildPreviousDateFilter, getPreviousPeriodLabel, calculateComparison, parseValue, formatCurrency, formatPercent, formatNumber, parseUtcToUtcMinus3 } from '../lib/metrics';
+import { useSortState } from '../lib/hooks';
 import type { AuthUser } from '../types/auth';
 import { LightboxModal } from './tabs/LightboxModal';
+import { Button } from './ui/Button';
+import { Dialog } from './ui/Dialog';
+import { PopoverPanel } from './ui/PopoverPanel';
+import { MetricCard } from './ui/MetricCard';
+import { Badge } from './ui/Badge';
 
 const DailyChartSection = React.lazy(() => import('./tabs/DailyChartSection').then(({ DailyChartSection }) => ({ default: DailyChartSection })));
 const CampanhasTab = React.lazy(() => import('./tabs/CampanhasTab').then(({ CampanhasTab }) => ({ default: CampanhasTab })));
@@ -17,26 +23,21 @@ const CriativosTab = React.lazy(() => import('./tabs/CriativosTab').then(({ Cria
 const FontesTab = React.lazy(() => import('./tabs/FontesTab').then(({ FontesTab }) => ({ default: FontesTab })));
 const ProdutosTab = React.lazy(() => import('./tabs/ProdutosTab').then(({ ProdutosTab }) => ({ default: ProdutosTab })));
 
-const ALLEVO_ACTION_INK = '#1A1A1A';
-const ALLEVO_ACTION_STYLE: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #00D99F, #00FFBB)',
-  borderColor: '#00FFBB',
-  color: ALLEVO_ACTION_INK,
-  WebkitTextFillColor: ALLEVO_ACTION_INK
-};
-const ALLEVO_ACTION_TEXT_STYLE: React.CSSProperties = {
-  color: ALLEVO_ACTION_INK,
-  WebkitTextFillColor: ALLEVO_ACTION_INK
-};
-const ALLEVO_ACTION_ICON_STYLE: React.CSSProperties = {
-  color: ALLEVO_ACTION_INK,
-  stroke: ALLEVO_ACTION_INK
-};
-
 const DEFAULT_DASHBOARD_FUNNELS: DashboardFunnel[] = [
   { id: 'estrategia', name: 'Livro Estratégia em Ação', sheetId: '', color: '#00FFBB', builtIn: true },
   { id: 'gestao-ia', name: 'Livro Gestão de Projetos com IA', sheetId: '', color: '#66BEFF', builtIn: true }
 ];
+
+// Same validated categorical palette as index.css's --chart-1..8 — kept as a
+// JS array too so a funnel's swatch (tag, checkbox, product-chart family)
+// can be derived from its stable position in `funnels`, not from whatever
+// arbitrary `color` the funnel record carries. Assigned by index, never by
+// name matching, so "same funnel" always means "same color" everywhere.
+const FUNNEL_PALETTE = ['#1885c4', '#bf7d23', '#7b68ee', '#a28b08', '#b8538c', '#59ac44', '#bd5446', '#028ba3'];
+function getFunnelColor(funnels: DashboardFunnel[], funnelId: string) {
+  const index = funnels.findIndex((f) => f.id === funnelId);
+  return FUNNEL_PALETTE[(index < 0 ? 0 : index) % FUNNEL_PALETTE.length];
+}
 
 function PanelLoadingState() {
   return (
@@ -72,142 +73,25 @@ function getCreativeThumbnail(creativeName: string, customImage?: string) {
   return '';
 }
 
+// Colors pull from the validated categorical palette (--chart-1..8, see
+// index.css); each metric keeps the same slot everywhere it appears so
+// identity never shifts when the selection changes. With 10 metrics sharing
+// 8 CVD-safe hues, a couple of pairs (lucro/faturamento, cpaTotal/cpaTrafego,
+// roas/conversaoOrderBump) sit closer than ideal — DailyChartSection adds a
+// distinct line-dash pattern per series as a second channel for exactly
+// those cases, on top of the legend/tooltip labels.
 const METRIC_CONFIG: Record<string, { label: string, color: string, type: 'currency' | 'number' | 'percent', renderType: 'bar' | 'line' }> = {
-  investimentoTotal: { label: 'Investimento Total', color: '#F59E0B', type: 'currency', renderType: 'bar' },
-  faturamentoTotal: { label: 'Faturamento Total', color: '#00E5A8', type: 'currency', renderType: 'line' },
-  lucroTotal: { label: 'Lucro Total', color: '#34D399', type: 'currency', renderType: 'line' },
-  ticketMedio: { label: 'Ticket Médio', color: '#A855F7', type: 'currency', renderType: 'line' },
-  vendasIngressos: { label: 'Livros Vendidos (Geral)', color: '#14B8A6', type: 'number', renderType: 'bar' },
-  vendasTrafego: { label: 'Livros via Tráfego', color: '#60A5FA', type: 'number', renderType: 'line' },
-  cpaTrafego: { label: 'CPA (Tráfego)', color: '#F43F5E', type: 'currency', renderType: 'line' },
-  cpaTotal: { label: 'CPA (Total)', color: '#F97316', type: 'currency', renderType: 'line' },
-  roas: { label: 'ROAS', color: '#A3E635', type: 'number', renderType: 'line' },
-  conversaoOrderBump: { label: 'Conversão de Order Bump', color: '#A3E635', type: 'percent', renderType: 'line' }
+  investimentoTotal: { label: 'Investimento Total', color: '#bf7d23', type: 'currency', renderType: 'bar' },
+  vendasTrafego: { label: 'Livros via Tráfego', color: '#1885c4', type: 'number', renderType: 'line' },
+  faturamentoTotal: { label: 'Faturamento Total', color: '#59ac44', type: 'currency', renderType: 'line' },
+  lucroTotal: { label: 'Lucro Total', color: '#b8538c', type: 'currency', renderType: 'line' },
+  ticketMedio: { label: 'Ticket Médio', color: '#7b68ee', type: 'currency', renderType: 'line' },
+  vendasIngressos: { label: 'Livros Vendidos (Geral)', color: '#028ba3', type: 'number', renderType: 'bar' },
+  cpaTrafego: { label: 'CPA (Tráfego)', color: '#a28b08', type: 'currency', renderType: 'line' },
+  cpaTotal: { label: 'CPA (Total)', color: '#bd5446', type: 'currency', renderType: 'line' },
+  roas: { label: 'ROAS', color: '#a28b08', type: 'number', renderType: 'line' },
+  conversaoOrderBump: { label: 'Conversão de Order Bump', color: '#bd5446', type: 'percent', renderType: 'line' }
 };
-
-interface MetricCardProps {
-  id?: string;
-  title: string;
-  value: string | number;
-  subtext: string;
-  icon: React.ReactNode;
-  iconBg?: string;
-  iconColor?: string;
-  valueColor?: string;
-  className?: string;
-  selected?: boolean;
-  isHero?: boolean;
-  heroTag?: string;
-  comparison?: {
-    percent: number;
-    diff: number;
-    isGood: boolean;
-    formatted: string;
-    prevValue?: number;
-    prevFormatted?: string;
-  } | null;
-  comparisonLabel?: string;
-  onClick?: () => void;
-}
-
-function MetricCard({ 
-  id, title, value, subtext, icon, valueColor, className, selected, isHero, heroTag,
-  comparison, comparisonLabel, onClick
-}: MetricCardProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      aria-label={`${title}: ${value}. ${selected ? 'Remover do gráfico' : 'Adicionar ao gráfico'}`}
-      className={cn(
-        "metric-card appearance-none rounded-[8px] border p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden text-left w-full",
-        isHero 
-          ? "ring-1 ring-[#00FFBB]/15 hover:border-[#00FFBB]/50" 
-          : "hover:border-slate-500/40",
-        onClick && "cursor-pointer",
-        selected && "ring-2 ring-[#00FFBB]/80 border-[#00FFBB]/70 bg-[#1C2230]",
-        className
-      )}
-    >
-      {isHero && (
-        <div 
-          data-active-green="true"
-          data-action-ink="true"
-          style={ALLEVO_ACTION_STYLE}
-          className="allevo-action badge-primary-green absolute top-0 right-0 px-2.5 py-0.5 bg-[#00FFBB] !text-[#1A1A1A] text-[10px] font-mono font-black uppercase tracking-widest rounded-bl-[8px] shadow-sm flex items-center gap-1 z-10"
-        >
-          <Zap size={10} color={ALLEVO_ACTION_INK} fill={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={{ ...ALLEVO_ACTION_ICON_STYLE, fill: ALLEVO_ACTION_INK }} className="shrink-0 !text-[#1A1A1A] stroke-[#1A1A1A]" />
-          <span style={{ ...ALLEVO_ACTION_TEXT_STYLE, fontWeight: 900 }} className="!text-[#1A1A1A] font-black">{heroTag || "Destaque"}</span>
-        </div>
-      )}
-
-      {/* TOP SECTION: ICON + TITLE */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <div 
-            data-active-green={selected ? "true" : undefined}
-            data-action-ink={selected ? "true" : undefined}
-            style={selected ? ALLEVO_ACTION_STYLE : undefined}
-            className={cn("p-2 rounded-[8px] transition-colors border flex items-center justify-center", selected ? "allevo-action bg-[#00FFBB] !text-[#1A1A1A] border-[#00FFBB] font-black" : "bg-[#00FFBB]/10 text-[#00FFBB] border-[#00FFBB]/20")}
-          >
-            {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, {
-              color: selected ? ALLEVO_ACTION_INK : '#00FFBB',
-              stroke: selected ? ALLEVO_ACTION_INK : '#00FFBB',
-              strokeWidth: selected ? 2.5 : 2,
-              style: selected ? ALLEVO_ACTION_ICON_STYLE : { color: '#00FFBB', stroke: '#00FFBB' },
-              className: selected ? '!text-[#1A1A1A] stroke-[#1A1A1A]' : 'text-[#00FFBB]'
-            }) : icon}
-          </div>
-          <span data-metric-title className={cn("font-sans uppercase", isHero ? "text-zinc-200" : "text-zinc-400")}>{title}</span>
-        </div>
-        {selected && (
-          <div className="w-2.5 h-2.5 rounded-full bg-[#00FFBB] shadow-sm shadow-[#00FFBB]"></div>
-        )}
-      </div>
-
-      {/* MIDDLE SECTION: BIG VALUE + SUBTEXT */}
-      <div className="mb-1">
-        <h3 data-metric-value className={cn("font-sans tabular-nums mb-1 transition-colors", valueColor || (isHero ? "text-white" : "text-white"))}>{value}</h3>
-        <p data-metric-subtext className="text-zinc-400 font-normal">{subtext}</p>
-      </div>
-
-      {/* COMPARISON BADGE */}
-      {comparison && (
-        <div data-metric-comparison className="mt-3 pt-2.5 border-t border-[#262626] flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className={cn(
-            "inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] font-sans font-bold text-xs tracking-wide shrink-0",
-            comparison.isGood 
-              ? "bg-[#00FFBB]/10 text-[#00FFBB] border border-[#00FFBB]/20"
-              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-          )}>
-            {comparison.percent > 0 ? (
-              <TrendingUp size={11} className={comparison.isGood ? "text-[#00FFBB]" : "text-rose-400"} />
-            ) : comparison.percent < 0 ? (
-              <TrendingDown size={11} className={comparison.isGood ? "text-[#00FFBB]" : "text-rose-400"} />
-            ) : (
-              <Equal size={11} className="text-zinc-400" />
-            )}
-            <span>{comparison.formatted}</span>
-          </div>
-
-          <div 
-            className="font-sans text-xs text-zinc-400 font-medium flex w-full min-w-0 items-center gap-1 sm:w-auto sm:justify-end"
-            title={comparison.prevFormatted ? `Valor no período anterior: ${comparison.prevFormatted}` : undefined}
-          >
-            <span className="truncate text-left sm:text-right">{comparisonLabel || 'vs. anterior'}</span>
-            {comparison.prevFormatted && (
-              <span className="text-zinc-200 font-bold bg-[#242424] px-1.5 py-0.5 rounded-[4px] border border-[#262626] shrink-0 text-xs">
-                ({comparison.prevFormatted})
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-    </button>
-  );
-}
 
 function getLabelForDateRange(range: string, custom: { start: string; end: string }) {
   if (range.startsWith('CUSTOM:')) {
@@ -232,16 +116,6 @@ function getLabelForDateRange(range: string, custom: { start: string; end: strin
   return labels[range] || range;
 }
 
-const COLORS = [
-  'var(--chart-strategy-1)',
-  'var(--chart-management-1)',
-  'var(--chart-neutral-1)',
-  'var(--chart-launch-1)',
-  'var(--metric-risk)',
-  'var(--chart-management-2)',
-  'var(--chart-strategy-2)'
-];
-
 interface DashboardProps {
   authUser?: AuthUser | null;
   onLogout?: () => void;
@@ -262,10 +136,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [optimizationHistory, setOptimizationHistory] = useState<any[]>([]);
   const [previewAlertId, setPreviewAlertId] = useState<string | null>(null);
-  const [pageSort, setPageSort] = useState<{column: string, direction: 'asc' | 'desc'}>({column: 'salesMeta', direction: 'desc'});
-  const [creativeSort, setCreativeSort] = useState<{column: string, direction: 'asc' | 'desc'}>({column: 'investimento', direction: 'desc'});
-  const [campaignSort, setCampaignSort] = useState<{column: string, direction: 'asc' | 'desc'}>({column: 'investimento', direction: 'desc'});
-  const [fgpSort, setFgpSort] = useState<{column: string, direction: 'asc' | 'desc'}>({column: 'data', direction: 'desc'});
+  const [pageSort, togglePageSort] = useSortState({column: 'salesMeta', direction: 'desc'});
+  const [creativeSort, toggleCreativeSort] = useSortState({column: 'investimento', direction: 'desc'});
+  const [campaignSort, toggleCampaignSort] = useSortState({column: 'investimento', direction: 'desc'});
+  const [fgpSort, toggleFgpSort] = useSortState({column: 'data', direction: 'desc'});
   const [creativeFilter, setCreativeFilter] = useState('');
   const [fgpFilter, setFgpFilter] = useState('');
   
@@ -302,7 +176,6 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const [isTabMenuOpen, setIsTabMenuOpen] = useState(false);
   const tabMenuRef = useRef<HTMLDivElement>(null);
   const tabMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const modalRef = useRef<HTMLElement>(null);
 
   // Lightbox Zoom State
   const [activeLightboxImage, setActiveLightboxImage] = useState<{ name: string; url: string; link?: string; stats?: any } | null>(null);
@@ -354,45 +227,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     return () => document.removeEventListener('keydown', closeOpenMenus);
   }, [isProfileMenuOpen, isFunnelMenuOpen, isDateMenuOpen, isTabMenuOpen]);
 
-  useEffect(() => {
-    const isModalOpen = isAddFunnelConfirmOpen || isAddFunnelModalOpen || Boolean(funnelPendingDelete);
-    if (!isModalOpen) return;
-
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const focusableSelector = 'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    const focusFirstControl = () => {
-      modalRef.current?.querySelector<HTMLElement>(focusableSelector)?.focus();
-    };
-    const frame = window.requestAnimationFrame(focusFirstControl);
-
-    const handleModalKeys = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (isAddFunnelConfirmOpen) setIsAddFunnelConfirmOpen(false);
-        if (isAddFunnelModalOpen) closeFunnelEditor();
-        if (funnelPendingDelete && !isDeletingFunnel) setFunnelPendingDelete(null);
-        return;
-      }
-      if (event.key !== 'Tab' || !modalRef.current) return;
-      const controls = Array.from(modalRef.current.querySelectorAll(focusableSelector)) as HTMLElement[];
-      if (controls.length === 0) return;
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', handleModalKeys);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.removeEventListener('keydown', handleModalKeys);
-      previouslyFocused?.focus();
-    };
-  }, [isAddFunnelConfirmOpen, isAddFunnelModalOpen, funnelPendingDelete, isCreatingFunnel, isDeletingFunnel]);
+  // Each modal below renders through <Dialog>, which owns its own focus
+  // trap/Escape/backdrop handling — no shared modal effect needed here.
 
   const selectedProject = selectedFunnelIds.join(',');
   const loadData = async (proj?: string) => {
@@ -1097,8 +933,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       if (b.count !== a.count) return b.count - a.count;
       return a.name.localeCompare(b.name); // Desempate por nome para manter ordem
     });
-    const COLOR_HEX = ['#00FFBB', '#66BEFF', '#A855F7', '#EC4899', '#F59E0B', '#EF4444', '#14B8A6', '#6366F1', '#94A3B8', '#38BDF8'];
-    const COLOR_BG = ['bg-[#00FFBB]', 'bg-blue-400', 'bg-purple-400', 'bg-pink-400', 'bg-amber-400', 'bg-rose-400', 'bg-teal-400', 'bg-indigo-400', 'bg-slate-400', 'bg-sky-400'];
+    // Fixed hue order from the validated categorical palette (dataviz skill) —
+    // never reassign a slot to a different hue, only cycle through them.
+    const COLOR_HEX = ['#1885c4', '#bf7d23', '#7b68ee', '#a28b08', '#b8538c', '#59ac44', '#bd5446', '#028ba3'];
+    const COLOR_BG = ['bg-[var(--chart-1)]', 'bg-[var(--chart-2)]', 'bg-[var(--chart-3)]', 'bg-[var(--chart-4)]', 'bg-[var(--chart-5)]', 'bg-[var(--chart-6)]', 'bg-[var(--chart-7)]', 'bg-[var(--chart-8)]'];
 
     const sources = sourcesRaw.map((s: any, i: number) => ({
       ...s,
@@ -1517,38 +1355,6 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     setExpandedCampaigns(prev => ({ ...prev, [campName]: !prev[campName] }));
   };
 
-  const togglePageSort = (column: string) => {
-    if (pageSort.column === column) {
-      setPageSort(prev => ({ column, direction: prev.direction === 'asc' ? 'desc' : 'asc' }));
-    } else {
-      setPageSort({ column, direction: 'desc' });
-    }
-  };
-
-  const toggleCreativeSort = (column: string) => {
-    if (creativeSort.column === column) {
-      setCreativeSort(prev => ({ column, direction: prev.direction === 'asc' ? 'desc' : 'asc' }));
-    } else {
-      setCreativeSort({ column, direction: 'desc' });
-    }
-  };
-
-  const toggleCampaignSort = (column: string) => {
-    if (campaignSort.column === column) {
-      setCampaignSort(prev => ({ column, direction: prev.direction === 'asc' ? 'desc' : 'asc' }));
-    } else {
-      setCampaignSort({ column, direction: 'desc' });
-    }
-  };
-
-  const toggleFgpSort = (column: string) => {
-    if (fgpSort.column === column) {
-      setFgpSort(prev => ({ column, direction: prev.direction === 'asc' ? 'desc' : 'asc' }));
-    } else {
-      setFgpSort({ column, direction: 'desc' });
-    }
-  };
-
   const toggleMetric = (id: string) => {
     setSelectedMetrics(prev => {
       if (prev.includes(id)) {
@@ -1652,6 +1458,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const comparisonLabel = getPreviousPeriodLabel(dateRange, customDates);
   const comp = metricsData.comparison || {};
   const selectedFunnelTags = funnels.filter((funnel) => selectedFunnelIds.includes(funnel.id));
+  const funnelColors = Object.fromEntries(funnels.map((funnel) => [funnel.name, getFunnelColor(funnels, funnel.id)]));
+  // The daily product-sales series key the two built-in funnels down to short
+  // aliases ("Estratégia" / "Gestão IA") instead of their full catalog name —
+  // mirror that here so DailyChartSection's lookup still finds their color.
+  const estrategiaFunnel = funnels.find((f) => f.id === 'estrategia' || /estrat(é|e)gia/i.test(f.name));
+  const gestaoFunnel = funnels.find((f) => f.id === 'gestao-ia' || /gest(ã|a)o|projetos\s+com\s+ia/i.test(f.name));
+  if (estrategiaFunnel) funnelColors['Estratégia'] = getFunnelColor(funnels, estrategiaFunnel.id);
+  if (gestaoFunnel) funnelColors['Gestão IA'] = getFunnelColor(funnels, gestaoFunnel.id);
   const sourceWarnings = useMemo(() => {
     const diagnostics = Array.isArray(data?.diagnostics) ? data.diagnostics : [];
     return diagnostics.flatMap((item: any) => {
@@ -1714,11 +1528,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 </button>
 
                 {/* Collapsed Dropdown Menu */}
-                {isProfileMenuOpen && (
-                  <div id="profile-menu" role="menu" className="absolute right-0 md:left-0 md:right-auto top-full mt-2 w-72 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <PopoverPanel open={isProfileMenuOpen} id="profile-menu" align="right" width="w-72" className="md:left-0 md:right-auto">
                     {/* Account Header */}
-                    <div className="p-3 bg-[#242424] border border-[#262626] rounded-[8px] flex items-center gap-3 mb-1">
-                      <div className="w-9 h-9 rounded-[8px] bg-[#00FFBB]/15 text-[#00FFBB] border border-[#00FFBB]/30 flex items-center justify-center font-mono font-bold text-sm shrink-0">
+                    <div className="p-3 bg-[var(--surface-3)] border border-[var(--border-hairline)] rounded-[var(--radius-control)] flex items-center gap-3 mb-1">
+                      <div className="w-9 h-9 rounded-[var(--radius-control)] bg-[#00FFBB]/15 text-[#00FFBB] border border-[#00FFBB]/30 flex items-center justify-center font-mono font-bold text-sm shrink-0">
                         {authUser.email.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex flex-col min-w-0 flex-1">
@@ -1728,13 +1541,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         <span className="text-[11px] text-zinc-400 font-mono truncate">
                           {authUser.email}
                         </span>
-                        <span className="text-[9px] text-[#00FFBB] font-mono font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                        <span className="text-[9px] text-[#00FFBB] font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5">
                           <ShieldCheck size={10} /> {authUser.provider === 'google' ? 'Google Workspace SSO' : 'E-mail Verificado'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="h-px bg-[#262626] my-2" />
+                    <div className="h-px bg-[var(--border-hairline)] my-2" />
 
                     {/* Actions */}
                     <div className="space-y-1">
@@ -1745,7 +1558,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                             setIsProfileMenuOpen(false);
                             onOpenSecuritySettings();
                           }}
-                          className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] hover:bg-[#242424] text-zinc-200 hover:text-[#00FFBB] text-xs font-bold transition-colors text-left"
+                          className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-control)] hover:bg-[var(--surface-3)] text-zinc-200 hover:text-[#00FFBB] text-xs font-bold transition-colors text-left"
                         >
                           <Shield size={15} className="text-[#00FFBB]" />
                           <div className="flex flex-col">
@@ -1762,15 +1575,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                             setIsProfileMenuOpen(false);
                             onLogout();
                           }}
-                          className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 rounded-[8px] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 text-xs font-bold transition-colors text-left mt-1"
+                          className="min-h-11 w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-control)] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 text-xs font-bold transition-colors text-left mt-1"
                         >
                           <LogOut size={15} className="text-rose-400" />
                           <span>Sair da Conta</span>
                         </button>
                       )}
                     </div>
-                  </div>
-                )}
+                </PopoverPanel>
               </div>
             )}
           </div>
@@ -1799,8 +1611,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               <ChevronDown size={15} className={cn("text-zinc-400 transition-transform", isFunnelMenuOpen && "rotate-180 text-[#00FFBB]")} />
             </button>
 
-            {isFunnelMenuOpen && (
-              <div id="funnel-menu" role="menu" className="absolute left-0 top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-50">
+            <PopoverPanel open={isFunnelMenuOpen} id="funnel-menu" width="w-[min(20rem,calc(100vw-1.5rem))]">
                 <p className="px-2.5 py-2 text-xs text-zinc-400">Selecione os funis para consolidar a análise.</p>
                 {funnels.map((funnel) => {
                   const isSelected = selectedFunnelIds.includes(funnel.id);
@@ -1813,7 +1624,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         className="min-w-0 flex-1 flex items-center gap-3 px-2.5 py-2.5 text-left transition-colors"
                       >
                         <span className={cn("w-4 h-4 border rounded-[4px] flex items-center justify-center shrink-0", isSelected ? "bg-[#00FFBB] border-[#00FFBB] text-[#1A1A1A]" : "border-zinc-500")}>{isSelected && <Check size={12} strokeWidth={3} />}</span>
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: funnel.color }} />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getFunnelColor(funnels, funnel.id) }} />
                         <span className="text-sm font-medium text-zinc-100 min-w-0 truncate">{funnel.name}</span>
                       </button>
                       <button type="button" role="menuitem" onClick={() => openFunnelEditor(funnel)} title={`Editar ${funnel.name}`} aria-label={`Editar ${funnel.name}`} className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-[6px] text-zinc-300 hover:bg-white/10 hover:text-white">
@@ -1836,8 +1647,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 >
                   <Plus size={16} /> Adicionar funil
                 </button>
-              </div>
-            )}
+            </PopoverPanel>
           </div>
 
           {/* Compact Popover Date Range Selector */}
@@ -1861,16 +1671,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             </button>
 
             {/* Popover Dropdown */}
-            {isDateMenuOpen && (
-              <div id="date-range-menu" role="dialog" aria-label="Selecionar período" className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-[#1C1C1C] border border-[#262626] rounded-[8px] shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#262626]">
-                  <span className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <PopoverPanel open={isDateMenuOpen} id="date-range-menu" role="dialog" align="right" width="w-[min(20rem,calc(100vw-1.5rem))]" className="p-4" aria-label="Selecionar período">
+                <div className="flex items-center justify-between pb-2 mb-3 border-b border-[var(--border-hairline)]">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar size={14} className="text-[#00FFBB]" /> Selecionar Período
                   </span>
-                  <button 
+                  <button
                     onClick={() => setIsDateMenuOpen(false)}
                     aria-label="Fechar filtro de período"
-                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-[6px] text-zinc-500 hover:text-zinc-300"
+                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-[var(--radius-control)] text-zinc-500 hover:text-zinc-300"
                   >
                     <X size={14} />
                   </button>
@@ -1881,24 +1690,22 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   {dateOptions.map(opt => {
                     const isSelected = dateRange === opt;
                     return (
-                      <button 
+                      <button
                         key={opt}
-                        data-action-ink={isSelected ? "true" : undefined}
                         onClick={() => {
                           setDateRange(opt);
                           setCustomDates({ start: '', end: '' });
                           setIsDateMenuOpen(false);
                         }}
-                        style={isSelected ? ALLEVO_ACTION_STYLE : undefined}
                         className={cn(
-                          "px-3 py-2 text-xs font-mono font-bold rounded-[8px] transition-all text-left flex items-center justify-between",
-                          isSelected 
-                            ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] shadow-sm shadow-[#00FFBB]/20 font-black"
-                            : "bg-[#242424] text-zinc-300 hover:text-white hover:bg-[#2E2E2E] border border-[#262626]"
+                          "px-3 py-2 text-xs font-bold rounded-[var(--radius-control)] transition-all text-left flex items-center justify-between border",
+                          isSelected
+                            ? "bg-[var(--selection-subtle)] border-[var(--selection)]/50 text-[var(--selection)]"
+                            : "bg-[var(--surface-3)] text-zinc-300 hover:text-white hover:bg-[var(--surface-4)] border-[var(--border-hairline)]"
                         )}
                       >
-                        <span style={isSelected ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={isSelected ? "!text-[#1A1A1A] font-black" : ""}>{getLabelForDateRange(opt, { start: '', end: '' })}</span>
-                        {isSelected && <Check size={14} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={3} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A] shrink-0" />}
+                        <span>{getLabelForDateRange(opt, { start: '', end: '' })}</span>
+                        {isSelected && <Check size={14} strokeWidth={3} className="shrink-0" />}
                       </button>
                     );
                   })}
@@ -1970,8 +1777,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   )}
                 </div>
 
-              </div>
-            )}
+            </PopoverPanel>
           </div>
 
           {/* Sync Button & Last Updated Indicator */}
@@ -1981,18 +1787,18 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 Última sinc. às <strong className="text-zinc-200 font-bold">{lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}h</strong>
               </span>
             )}
-            <button 
+            <Button
+              variant="primary"
+              size="icon"
               onClick={() => loadData(selectedProject)}
               disabled={loading}
               aria-busy={loading}
-              data-action-ink="true"
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
-              style={ALLEVO_ACTION_STYLE}
               aria-label="Sincronizar planilha"
-              className="allevo-action btn-primary-green w-11 h-11 bg-[#00FFBB] !text-[#1A1A1A] rounded-[8px] transition-all disabled:opacity-50 shadow-md shadow-[#00FFBB]/20 inline-flex items-center justify-center shrink-0 active:scale-95 cursor-pointer"
+              className="active:scale-95"
             >
-              <RotateCcw size={18} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={2.5} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A]", loading && "animate-spin")} />
-            </button>
+              <RotateCcw size={18} className={cn(loading && "animate-spin")} />
+            </Button>
           </div>
         </div>
       </header>
@@ -2020,16 +1826,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   return (
                     <button
                       key={tab.name}
-                      data-active-tab={isActive ? "true" : undefined}
-                      data-active-green={isActive ? "true" : undefined}
-                      data-action-ink={isActive ? "true" : undefined}
+                      aria-current={isActive ? "page" : undefined}
                       onClick={() => setActiveTab(tab.name)}
-                      style={isActive ? ALLEVO_ACTION_STYLE : undefined}
                       title={isSidebarCollapsed ? tab.name : undefined}
                       className={cn(
-                        "w-full flex items-center rounded-[6px] text-sm font-semibold transition-colors",
+                        "w-full flex items-center rounded-[var(--radius-control)] text-sm font-semibold transition-colors border border-transparent",
                         isSidebarCollapsed ? "justify-center h-10" : "gap-3 px-3 py-2.5",
-                        isActive ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] font-black" : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
+                        isActive ? "bg-[var(--selection-subtle)] border-[var(--selection)]/30 text-[var(--selection)] font-bold" : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
                       )}
                     >
                       <TabIcon size={18} className="shrink-0" />
@@ -2057,27 +1860,22 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   {data && ' Os últimos dados carregados continuam visíveis.'}
                 </p>
                 {isPermissionError && (
-                  <div className="mt-3 text-xs bg-[#242424] p-3.5 rounded-[8px] border border-[#262626]">
-                    <p className="font-mono font-bold text-[#00FFBB] mb-1">Como liberar a leitura da planilha:</p>
+                  <div className="mt-3 text-xs bg-[var(--surface-3)] p-3.5 rounded-[var(--radius-control)] border border-[var(--border-hairline)]">
+                    <p className="font-bold text-[#00FFBB] mb-1">Como liberar a leitura da planilha:</p>
                     <ol className="list-decimal list-inside space-y-1 text-zinc-300">
-                      <li>Clique no botão <strong>Compartilhar</strong> (canto superior direito).</li>
-                      <li>Em <strong>Acesso geral</strong>, selecione <strong>Qualquer pessoa com o link</strong> e a permissão <strong>Leitor</strong>.</li>
+                      <li>Fale com quem administra a planilha antes de mudar o compartilhamento.</li>
+                      <li>Clique em <strong>Compartilhar</strong> (canto superior direito) e, se possível, restrinja o acesso a <strong>pessoas do domínio da empresa</strong> com permissão <strong>Leitor</strong>.</li>
+                      <li>Só use <strong>Qualquer pessoa com o link</strong> se o domínio não for uma opção — evite deixar a planilha acessível a qualquer pessoa da internet.</li>
                       <li>Depois que o acesso for corrigido, sincronize novamente.</li>
                     </ol>
                   </div>
                 )}
               </div>
             </div>
-            <button
-              onClick={() => loadData(selectedProject)}
-              disabled={loading}
-              data-action-ink="true"
-              style={ALLEVO_ACTION_STYLE}
-              className="allevo-action btn-primary-green min-h-11 px-5 py-3 bg-[#00FFBB] !text-[#1A1A1A] font-mono font-black rounded-[8px] text-sm shadow-md transition-colors shrink-0 flex items-center gap-2 self-stretch md:self-auto justify-center cursor-pointer"
-            >
-              <RotateCcw size={16} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} style={ALLEVO_ACTION_ICON_STYLE} className={cn("!text-[#1A1A1A] stroke-[#1A1A1A] shrink-0", loading && "animate-spin")} />
-              <span style={ALLEVO_ACTION_TEXT_STYLE} className="!text-[#1A1A1A] font-black">Tentar Novamente</span>
-            </button>
+            <Button variant="primary" onClick={() => loadData(selectedProject)} disabled={loading} className="shrink-0 self-stretch md:self-auto justify-center">
+              <RotateCcw size={16} className={cn("shrink-0", loading && "animate-spin")} />
+              <span>Tentar Novamente</span>
+            </Button>
           </div>
         )}
         
@@ -2106,8 +1904,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 <ChevronDown size={18} className={cn("text-zinc-400 transition-transform duration-200", isTabMenuOpen && "rotate-180 text-[#00FFBB]")} />
               </button>
 
-              {isTabMenuOpen && (
-                <div id="mobile-navigation-menu" role="menu" className="absolute left-0 right-0 top-full mt-2 bg-[#151922] border border-white/10 rounded-[8px] shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1">
+              <PopoverPanel open={isTabMenuOpen} id="mobile-navigation-menu" align="full" className="z-40 space-y-1">
                   {tabs.map(tab => {
                     const isActive = activeTab === tab.name;
                     const TabIcon = tab.icon;
@@ -2116,38 +1913,26 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                         key={tab.name}
                         role="menuitemradio"
                         aria-checked={isActive}
-                        data-active-tab={isActive ? "true" : undefined}
-                        data-active-green={isActive ? "true" : undefined}
-                        data-action-ink={isActive ? "true" : undefined}
                         onClick={() => {
                           setActiveTab(tab.name);
                           setIsTabMenuOpen(false);
                         }}
-                        style={isActive ? ALLEVO_ACTION_STYLE : undefined}
                         className={cn(
-                          "w-full flex items-center justify-between px-3.5 py-3 rounded-[8px] font-mono font-bold text-xs transition-all text-left",
+                          "w-full flex items-center justify-between px-3.5 py-3 rounded-[var(--radius-control)] font-bold text-xs transition-all text-left border border-transparent",
                           isActive
-                            ? "allevo-action btn-primary-green bg-[#00FFBB] !text-[#1A1A1A] shadow-md shadow-[#00FFBB]/20 font-black"
-                            : "text-zinc-300 hover:bg-[#242424] hover:text-white"
+                            ? "bg-[var(--selection-subtle)] border-[var(--selection)]/30 text-[var(--selection)]"
+                            : "text-zinc-300 hover:bg-[var(--surface-3)] hover:text-white"
                         )}
                       >
                         <div className="flex items-center gap-2.5">
-                          <TabIcon 
-                            size={18} 
-                            color={isActive ? ALLEVO_ACTION_INK : undefined}
-                            stroke={isActive ? ALLEVO_ACTION_INK : "currentColor"}
-                            strokeWidth={isActive ? 2.5 : 2}
-                            style={isActive ? ALLEVO_ACTION_ICON_STYLE : undefined}
-                            className={cn("shrink-0", isActive ? "!text-[#1A1A1A] stroke-[#1A1A1A]" : "")}
-                          />
-                          <span style={isActive ? ALLEVO_ACTION_TEXT_STYLE : undefined} className={isActive ? "!text-[#1A1A1A] font-black" : ""}>{tab.name}</span>
+                          <TabIcon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+                          <span>{tab.name}</span>
                         </div>
-                        {isActive && <Check size={16} color={ALLEVO_ACTION_INK} stroke={ALLEVO_ACTION_INK} strokeWidth={3} style={ALLEVO_ACTION_ICON_STYLE} className="!text-[#1A1A1A] stroke-[#1A1A1A]" />}
+                        {isActive && <Check size={16} strokeWidth={3} />}
                       </button>
                     );
                   })}
-                </div>
-              )}
+              </PopoverPanel>
             </div>
 
         {loading && !data ? (
@@ -2171,15 +1956,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 {/* TOP ROW: HERO METRICS HIGHLIGHTED */}
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-3" aria-label="Funis selecionados">
+                  <div className="flex flex-wrap items-center gap-2 mb-4" aria-label="Funis selecionados">
                     <span className="text-xs font-semibold text-zinc-500">Funis</span>
                     {selectedFunnelTags.map((funnel) => (
-                      <span key={funnel.id} title={funnel.name} className="inline-flex max-w-full items-center gap-2 px-2.5 py-1 rounded-[6px] bg-white/[0.045] border border-white/10 text-sm font-medium text-zinc-200">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: funnel.color }} />
+                      <Badge key={funnel.id} title={funnel.name} dotColor={getFunnelColor(funnels, funnel.id)}>
                         <span className="truncate">{funnel.name}</span>
-                      </span>
+                      </Badge>
                     ))}
                   </div>
+
                   {hasPaidLaunchSelected && (
                     <label className="mb-4 inline-flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] border border-[#A855F7]/35 bg-[#A855F7]/10 px-3.5 py-2.5 text-sm text-zinc-200 transition-colors hover:border-[#A855F7]/60">
                       <input
@@ -2346,6 +2131,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   comparePrevious={comparePrevious}
                   setComparePrevious={setComparePrevious}
                   METRIC_CONFIG={METRIC_CONFIG}
+                  funnelColors={funnelColors}
                   formatCurrency={formatCurrency}
                   formatNumber={formatNumber}
                 />
@@ -2441,81 +2227,61 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         formatCurrency={formatCurrency}
       />
 
-      {isAddFunnelConfirmOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="presentation">
-          <section ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="add-funnel-confirm-title" className="w-full max-w-md rounded-[8px] border border-white/10 bg-[#151922] p-6 shadow-2xl">
-            <h2 id="add-funnel-confirm-title" className="text-lg font-bold text-white">Adicionar novo funil?</h2>
-            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-              O dashboard vai validar a planilha e incluir o funil automaticamente na seleção e nos relatórios.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setIsAddFunnelConfirmOpen(false)} className="min-h-11 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06]">
-                Cancelar
-              </button>
-              <button type="button" onClick={() => { setIsAddFunnelConfirmOpen(false); setIsAddFunnelModalOpen(true); }} style={ALLEVO_ACTION_STYLE} className="allevo-action min-h-11 rounded-[6px] px-4 text-sm font-bold !text-[#1A1A1A]">
-                Continuar
-              </button>
-            </div>
-          </section>
+      <Dialog open={isAddFunnelConfirmOpen} onClose={() => setIsAddFunnelConfirmOpen(false)} labelledBy="add-funnel-confirm-title">
+        <h2 id="add-funnel-confirm-title" className="text-lg font-bold text-white">Adicionar novo funil?</h2>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+          O dashboard vai validar a planilha e incluir o funil automaticamente na seleção e nos relatórios.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="secondary" onClick={() => setIsAddFunnelConfirmOpen(false)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => { setIsAddFunnelConfirmOpen(false); setIsAddFunnelModalOpen(true); }}>Continuar</Button>
         </div>
-      )}
+      </Dialog>
 
-      {isAddFunnelModalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="presentation">
-          <form ref={(node) => { modalRef.current = node; }} onSubmit={handleSaveFunnel} role="dialog" aria-modal="true" aria-labelledby="add-funnel-title" className="w-full max-w-lg rounded-[8px] border border-white/10 bg-[#151922] p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 id="add-funnel-title" className="text-lg font-bold text-white">{editingFunnel ? 'Editar funil' : 'Novo funil'}</h2>
-                <p className="mt-1 text-sm text-zinc-400">Informe o nome e a planilha que será a fonte de dados.</p>
-              </div>
-              <button type="button" onClick={() => closeFunnelEditor()} className="rounded-[6px] p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white" aria-label="Fechar cadastro de funil">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="mt-5 space-y-4">
-              <label className="block text-sm font-semibold text-zinc-200">
-                Nome do funil
-                <input value={newFunnelName} onChange={(event) => setNewFunnelName(event.target.value)} required minLength={3} maxLength={80} placeholder="Ex.: Livro Nova Oferta" className="mt-2 min-h-11 w-full rounded-[6px] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#00FFBB]" />
-              </label>
-              <label className="block text-sm font-semibold text-zinc-200">
-                Link da planilha Google Sheets
-                <input type="url" value={newFunnelUrl} onChange={(event) => setNewFunnelUrl(event.target.value)} required placeholder="https://docs.google.com/spreadsheets/d/..." className="mt-2 min-h-11 w-full rounded-[6px] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#00FFBB]" />
-              </label>
-              <div className="rounded-[6px] border border-[#00FFBB]/20 bg-[#00FFBB]/[0.06] p-3 text-sm leading-relaxed text-zinc-300">
-                <strong className="text-[#00FFBB]">Antes de adicionar:</strong> na planilha, abra <strong>Compartilhar</strong> e configure <strong>Acesso geral: Qualquer pessoa com o link</strong> com a permissão <strong>Leitor</strong>. Ela precisa seguir o mesmo modelo das planilhas atuais.
-              </div>
-              {newFunnelError && <p role="alert" className="rounded-[6px] border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{newFunnelError}</p>}
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" disabled={isCreatingFunnel} onClick={() => closeFunnelEditor()} className="min-h-10 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] disabled:opacity-50">
-                Cancelar
-              </button>
-              <button type="submit" disabled={isCreatingFunnel} style={ALLEVO_ACTION_STYLE} className="allevo-action min-h-10 rounded-[6px] px-4 text-sm font-bold !text-[#1A1A1A] disabled:opacity-60">
-                {isCreatingFunnel ? 'Validando...' : editingFunnel ? 'Validar e salvar' : 'Validar e adicionar'}
-              </button>
-            </div>
-          </form>
+      <Dialog open={isAddFunnelModalOpen} onClose={() => closeFunnelEditor()} labelledBy="add-funnel-title" as="form" onSubmit={handleSaveFunnel} className="max-w-lg">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="add-funnel-title" className="text-lg font-bold text-white">{editingFunnel ? 'Editar funil' : 'Novo funil'}</h2>
+            <p className="mt-1 text-sm text-zinc-400">Informe o nome e a planilha que será a fonte de dados.</p>
+          </div>
+          <Button variant="icon" size="icon" className="w-9 h-9 min-h-9 min-w-9" onClick={() => closeFunnelEditor()} aria-label="Fechar cadastro de funil">
+            <X size={18} />
+          </Button>
         </div>
-      )}
+        <div className="mt-5 space-y-4">
+          <label className="block text-sm font-semibold text-zinc-200">
+            Nome do funil
+            <input value={newFunnelName} onChange={(event) => setNewFunnelName(event.target.value)} required minLength={3} maxLength={80} placeholder="Ex.: Livro Nova Oferta" className="mt-2 min-h-11 w-full rounded-[var(--radius-control)] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#00FFBB]" />
+          </label>
+          <label className="block text-sm font-semibold text-zinc-200">
+            Link da planilha Google Sheets
+            <input type="url" value={newFunnelUrl} onChange={(event) => setNewFunnelUrl(event.target.value)} required placeholder="https://docs.google.com/spreadsheets/d/..." className="mt-2 min-h-11 w-full rounded-[var(--radius-control)] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#00FFBB]" />
+          </label>
+          <div className="rounded-[var(--radius-control)] border border-[#00FFBB]/20 bg-[#00FFBB]/[0.06] p-3 text-sm leading-relaxed text-zinc-300">
+            <strong className="text-[#00FFBB]">Antes de adicionar:</strong> na planilha, abra <strong>Compartilhar</strong> e, se possível, restrinja o acesso a <strong>pessoas do domínio da empresa</strong> com permissão <strong>Leitor</strong>. Use <strong>Qualquer pessoa com o link</strong> apenas se essa opção não existir na sua conta Google.
+          </div>
+          {newFunnelError && <p role="alert" className="rounded-[var(--radius-control)] border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{newFunnelError}</p>}
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="secondary" size="sm" className="min-h-10" disabled={isCreatingFunnel} onClick={() => closeFunnelEditor()}>Cancelar</Button>
+          <Button variant="primary" size="sm" className="min-h-10" type="submit" disabled={isCreatingFunnel}>
+            {isCreatingFunnel ? 'Validando...' : editingFunnel ? 'Validar e salvar' : 'Validar e adicionar'}
+          </Button>
+        </div>
+      </Dialog>
 
-      {funnelPendingDelete && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="presentation">
-          <section ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="delete-funnel-title" className="w-full max-w-md rounded-[8px] border border-white/10 bg-[#151922] p-6 shadow-2xl">
-            <h2 id="delete-funnel-title" className="text-lg font-bold text-white">Remover funil?</h2>
-            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-              <strong>{funnelPendingDelete.name}</strong> deixará de aparecer no dashboard. Essa ação não apaga a planilha de origem.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" disabled={isDeletingFunnel} onClick={() => setFunnelPendingDelete(null)} className="min-h-10 rounded-[6px] border border-white/10 px-4 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] disabled:opacity-50">
-                Cancelar
-              </button>
-              <button type="button" disabled={isDeletingFunnel} onClick={handleDeleteFunnel} className="min-h-10 rounded-[6px] bg-rose-500 px-4 text-sm font-bold text-white hover:bg-rose-400 disabled:opacity-60">
-                {isDeletingFunnel ? 'Removendo...' : 'Remover funil'}
-              </button>
-            </div>
-          </section>
+      <Dialog open={Boolean(funnelPendingDelete)} onClose={() => { if (!isDeletingFunnel) setFunnelPendingDelete(null); }} labelledBy="delete-funnel-title">
+        <h2 id="delete-funnel-title" className="text-lg font-bold text-white">Remover funil?</h2>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+          <strong>{funnelPendingDelete?.name}</strong> deixará de aparecer no dashboard. Essa ação não apaga a planilha de origem.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="secondary" size="sm" className="min-h-10" disabled={isDeletingFunnel} onClick={() => setFunnelPendingDelete(null)}>Cancelar</Button>
+          <Button variant="danger" size="sm" className="min-h-10" disabled={isDeletingFunnel} onClick={handleDeleteFunnel}>
+            {isDeletingFunnel ? 'Removendo...' : 'Remover funil'}
+          </Button>
         </div>
-      )}
+      </Dialog>
 
     </div>
   );

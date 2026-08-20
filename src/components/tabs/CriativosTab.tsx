@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { Search, ExternalLink, Maximize2, ImageOff } from 'lucide-react';
 import { SortableHeader } from '../ui/SortableHeader';
+import { SectionHeader } from '../ui/SectionHeader';
+import { EmptyTableRow } from '../ui/EmptyState';
 
 interface CriativosTabProps {
   creativeFilter: string;
@@ -34,19 +36,23 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
 
   return (
     <div className="table-panel overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="p-4 sm:p-6 border-b border-[#262626] flex items-center justify-between flex-wrap gap-4">
-        <h3 className="text-base font-mono font-bold tracking-tight text-[#00FFBB] uppercase">Performance dos Criativos</h3>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={15} />
-          <input 
-            type="text" 
-            aria-label="Filtrar criativos"
-            placeholder="Filtrar criativo..." 
-            value={creativeFilter}
-            onChange={e => setCreativeFilter(e.target.value)}
-            className="pl-9 pr-4 py-2 bg-[#242424] border border-[#262626] rounded-[8px] text-base sm:text-xs font-sans text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-[#00FFBB]/30 focus:border-[#00FFBB] transition-all w-full sm:w-64 shadow-inner"
-          />
-        </div>
+      <div className="p-4 sm:p-6 border-b border-[var(--border-hairline)]">
+        <SectionHeader
+          title="Performance dos criativos"
+          action={
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={15} />
+              <input
+                type="text"
+                aria-label="Filtrar criativos"
+                placeholder="Filtrar criativo..."
+                value={creativeFilter}
+                onChange={e => setCreativeFilter(e.target.value)}
+                className="pl-9 pr-4 py-2 bg-[var(--surface-3)] border border-[var(--border-hairline)] rounded-[var(--radius-control)] text-base sm:text-xs text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-[#00FFBB]/30 focus:border-[#00FFBB] transition-all w-full sm:w-64 shadow-inner"
+              />
+            </div>
+          }
+        />
       </div>
       <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de criativos. Deslize horizontalmente para ver todas as colunas.">
         <table className="w-full text-left text-sm whitespace-nowrap lg:whitespace-normal">
@@ -65,7 +71,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
               <SortableHeader column="conv" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">Conv.</SortableHeader>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#262626] text-zinc-300 font-mono text-xs">
+          <tbody className="divide-y divide-[var(--border-hairline)] text-zinc-300 font-mono text-xs">
             {visibleCreatives.map((c: any) => {
                 const rawThumb = c.Thumb_Criativo || c.thumb || c.thumbnail || c.image;
                 const thumbUrl = getCreativeThumbnail(c.name, rawThumb);
@@ -78,7 +84,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                         className="relative group/thumb block mx-auto cursor-pointer disabled:cursor-default"
                         title={thumbUrl ? "Clique para ampliar prévia do criativo" : "Prévia indisponível para este criativo"}
                       >
-                        <div className="w-12 h-9 rounded-[6px] bg-[#242424] overflow-hidden border border-[#262626] group-hover/thumb:border-[#00FFBB] transition-all shadow-sm flex items-center justify-center relative">
+                        <div className="w-12 h-9 rounded-[6px] bg-[var(--surface-3)] overflow-hidden border border-[var(--border-hairline)] group-hover/thumb:border-[#00FFBB] transition-all shadow-sm flex items-center justify-center relative">
                           {thumbUrl ? <img
                             src={thumbUrl} 
                             alt={c.name}
@@ -129,12 +135,11 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                 );
             })}
             {visibleCreatives.length === 0 && (
-              <tr>
-                <td colSpan={11} className="px-6 py-12 text-center font-sans">
-                  <p className="font-medium text-zinc-400">{creativeFilter ? 'Nenhum criativo corresponde ao filtro.' : 'Nenhum criativo sincronizado neste período.'}</p>
-                  <p className="mt-1 text-xs text-zinc-500">{creativeFilter ? 'Revise a busca ou limpe o filtro.' : 'Altere o período ou sincronize a planilha novamente.'}</p>
-                </td>
-              </tr>
+              <EmptyTableRow
+                colSpan={11}
+                title={creativeFilter ? 'Nenhum criativo corresponde ao filtro.' : 'Nenhum criativo sincronizado neste período.'}
+                subtitle={creativeFilter ? 'Revise a busca ou limpe o filtro.' : 'Altere o período ou sincronize a planilha novamente.'}
+              />
             )}
           </tbody>
         </table>

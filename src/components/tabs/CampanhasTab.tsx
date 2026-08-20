@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { SortableHeader } from '../ui/SortableHeader';
+import { EmptyTableRow } from '../ui/EmptyState';
 
 interface CampanhasTabProps {
   sortedCampaigns: any[];
@@ -46,7 +47,7 @@ export const CampanhasTab: React.FC<CampanhasTabProps> = ({
                 <SortableHeader column="roas" activeColumn={campaignSort.column} direction={campaignSort.direction} onSort={toggleCampaignSort} align="right">ROAS</SortableHeader>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#262626] text-zinc-300 font-mono text-xs">
+            <tbody className="divide-y divide-[var(--border-hairline)] text-zinc-300 font-mono text-xs">
               {sortedCampaigns.map((camp: any) => (
                 <React.Fragment key={camp.name}>
                   <tr className="hover:bg-white/[0.045] transition-colors group bg-transparent">
@@ -62,9 +63,9 @@ export const CampanhasTab: React.FC<CampanhasTabProps> = ({
                     <td className="px-3.5 py-3 text-right text-zinc-200">{formatNumber(camp.cliques)}</td>
                     <td className="px-3.5 py-3 text-right text-zinc-400">{formatCurrency(camp.cpc)}</td>
                     <td className="px-3.5 py-3 text-right text-zinc-400">{formatPercent(camp.ctr)}</td>
-                    <td className="px-3.5 py-3 text-right font-bold text-[#00FFBB] border-l border-[#262626]">{camp.comprasTrafego}</td>
+                    <td className="px-3.5 py-3 text-right font-bold text-[var(--brand-strategy)] border-l border-[var(--border-hairline)]">{camp.comprasTrafego}</td>
                     <td className="px-3.5 py-3 text-right font-bold text-zinc-200">{formatCurrency(camp.cpa)}</td>
-                    <td className="px-3.5 py-3 text-right font-black text-[#00FFBB]">{(camp.roas || 0).toFixed(2)}x</td>
+                    <td className="px-3.5 py-3 text-right font-black text-[var(--brand-strategy)]">{(camp.roas || 0).toFixed(2)}x</td>
                   </tr>
                   
                   {expandedCampaigns[camp.name] && camp.sets.map((set: any) => (
@@ -79,35 +80,30 @@ export const CampanhasTab: React.FC<CampanhasTabProps> = ({
                       <td className="px-3.5 py-2.5 text-right text-[11px] text-zinc-300">{formatNumber(set.cliques)}</td>
                       <td className="px-3.5 py-2.5 text-right text-[11px] text-zinc-500">{formatCurrency(set.cpc)}</td>
                       <td className="px-3.5 py-2.5 text-right text-[11px] text-zinc-500">{formatPercent(set.ctr)}</td>
-                      <td className="px-3.5 py-2.5 text-right text-[11px] font-bold text-[#00FFBB] border-l border-[#262626]">{set.comprasTrafego}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[11px] font-bold text-[var(--brand-strategy)] border-l border-[var(--border-hairline)]">{set.comprasTrafego}</td>
                       <td className="px-3.5 py-2.5 text-right text-[11px] font-bold text-zinc-300">{formatCurrency(set.cpa)}</td>
-                      <td className="px-3.5 py-2.5 text-right text-[11px] font-bold text-[#00FFBB]">{(set.roas || 0).toFixed(2)}x</td>
+                      <td className="px-3.5 py-2.5 text-right text-[11px] font-bold text-[var(--brand-strategy)]">{(set.roas || 0).toFixed(2)}x</td>
                     </tr>
                   ))}
                 </React.Fragment>
               ))}
               {metricsCampaignsCount === 0 && (
-                <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center font-sans">
-                    <p className="font-medium text-zinc-400">Nenhuma campanha encontrada neste período.</p>
-                    <p className="mt-1 text-xs text-zinc-500">Altere o período ou sincronize a planilha novamente.</p>
-                  </td>
-                </tr>
+                <EmptyTableRow colSpan={10} title="Nenhuma campanha encontrada neste período." subtitle="Altere o período ou sincronize a planilha novamente." />
               )}
             </tbody>
             {metricsCampaignsCount > 0 && (
               <tfoot className="bg-white/[0.045] border-t border-white/10 font-mono font-bold text-zinc-100">
                 <tr>
-                  <td className="px-3.5 py-4 text-[11px] uppercase tracking-wider text-[#00FFBB] font-mono">Total do Período</td>
+                  <td className="px-3.5 py-4 text-[11px] uppercase tracking-wider text-[var(--brand-strategy)] font-mono">Total do Período</td>
                   <td className="px-3.5 py-4 text-right">{formatCurrency(campaignTotals.investimento)}</td>
                   <td className="px-3.5 py-4 text-right">{formatNumber(campaignTotals.impressoes)}</td>
                   <td className="px-3.5 py-4 text-right">{formatCurrency(campaignTotals.impressoes > 0 ? (campaignTotals.investimento / campaignTotals.impressoes) * 1000 : 0)}</td>
                   <td className="px-3.5 py-4 text-right">{formatNumber(campaignTotals.cliques)}</td>
                   <td className="px-3.5 py-4 text-right">{formatCurrency(campaignTotals.cliques > 0 ? campaignTotals.investimento / campaignTotals.cliques : 0)}</td>
                   <td className="px-3.5 py-4 text-right">{formatPercent(campaignTotals.impressoes > 0 ? campaignTotals.cliques / campaignTotals.impressoes : 0)}</td>
-                  <td className="px-3.5 py-4 text-right text-[#00FFBB]">{campaignTotals.compras}</td>
+                  <td className="px-3.5 py-4 text-right text-[var(--brand-strategy)]">{campaignTotals.compras}</td>
                   <td className="px-3.5 py-4 text-right">{formatCurrency(campaignTotals.compras > 0 ? campaignTotals.investimento / campaignTotals.compras : 0)}</td>
-                  <td className="px-3.5 py-4 text-right text-[#00FFBB]">{campaignTotals.investimento > 0 ? (campaignTotals.faturamento / campaignTotals.investimento).toFixed(2) : '0.00'}x</td>
+                  <td className="px-3.5 py-4 text-right text-[var(--brand-strategy)]">{campaignTotals.investimento > 0 ? (campaignTotals.faturamento / campaignTotals.investimento).toFixed(2) : '0.00'}x</td>
                 </tr>
               </tfoot>
             )}

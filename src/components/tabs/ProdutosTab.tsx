@@ -10,12 +10,12 @@ interface ProdutosTabProps {
 }
 
 const SOURCE_COLORS = [
-  'var(--chart-launch-1)',
-  'var(--chart-management-1)',
-  'var(--chart-management-2)',
-  'var(--chart-neutral-1)',
-  'var(--chart-strategy-2)',
-  'var(--chart-launch-3)'
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--chart-6)'
 ];
 
 function parseValue(value: unknown) {
@@ -103,22 +103,22 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-[8px] border border-white/10 bg-[#151922] p-5">
+        <div className="rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
           <div className="flex items-center gap-2 text-zinc-400 text-xs font-mono font-bold uppercase tracking-wider"><ShoppingBag size={15} className="text-[#A855F7]" /> Vendas de produto</div>
           <p className="mt-4 text-3xl font-mono font-bold text-zinc-100">{formatNumber(totalSales)}</p>
         </div>
-        <div className="rounded-[8px] border border-white/10 bg-[#151922] p-5">
+        <div className="rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
           <div className="flex items-center gap-2 text-zinc-400 text-xs font-mono font-bold uppercase tracking-wider"><TrendingUp size={15} className="text-[#A855F7]" /> Faturamento produto</div>
           <p className="mt-4 text-3xl font-mono font-bold text-[#A855F7]">{formatCurrency(totalRevenue)}</p>
         </div>
-        <div className="rounded-[8px] border border-white/10 bg-[#151922] p-5">
+        <div className="rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
           <div className="flex items-center gap-2 text-zinc-400 text-xs font-mono font-bold uppercase tracking-wider"><ReceiptText size={15} className="text-[#A855F7]" /> Ticket médio produto</div>
           <p className="mt-4 text-3xl font-mono font-bold text-zinc-100">{formatCurrency(averageTicket)}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 sm:gap-6">
-        <section className="xl:col-span-2 rounded-[8px] border border-white/10 bg-[#151922] p-5">
+        <section className="xl:col-span-2 rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Origem de tráfego</h3>
@@ -143,8 +143,8 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
           </div>
         </section>
 
-        <section className="xl:col-span-3 overflow-hidden rounded-[8px] border border-white/10 bg-[#151922]">
-          <div className="border-b border-white/10 px-5 py-4">
+        <section className="xl:col-span-3 overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)]">
+          <div className="border-b border-[var(--border-hairline)] px-5 py-4">
             <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Receita por origem atribuída</h3>
           </div>
           <div className="divide-y divide-white/[0.06]">
@@ -160,13 +160,13 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <section className="xl:col-span-3 overflow-hidden rounded-[8px] border border-white/10 bg-[#151922]">
-          <div className="border-b border-white/10 px-5 py-4">
+        <section className="xl:col-span-3 overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)]">
+          <div className="border-b border-[var(--border-hairline)] px-5 py-4">
             <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Performance por produto</h3>
           </div>
           <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de performance por produto. Deslize horizontalmente para ver todas as colunas.">
             <table className="w-full text-left">
-              <thead className="border-b border-white/10 bg-white/[0.035] text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+              <thead className="border-b border-[var(--border-hairline)] bg-white/[0.035] text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
                 <tr><th className="px-5 py-3">Produto</th><th className="px-5 py-3 text-right">Vendas</th><th className="px-5 py-3 text-right">Faturamento</th><th className="px-5 py-3 text-right">Ticket</th></tr>
               </thead>
               <tbody className="divide-y divide-white/[0.06] text-sm">
@@ -184,8 +184,8 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
           </div>
         </section>
 
-        <section className="xl:col-span-2 overflow-hidden rounded-[8px] border border-white/10 bg-[#151922]">
-          <div className="border-b border-white/10 px-5 py-4">
+        <section className="xl:col-span-2 overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)]">
+          <div className="border-b border-[var(--border-hairline)] px-5 py-4">
             <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Histórico de produtos</h3>
           </div>
           <div className="max-h-[360px] overflow-y-auto divide-y divide-white/[0.06]">

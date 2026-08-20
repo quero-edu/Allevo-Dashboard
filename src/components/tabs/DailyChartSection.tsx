@@ -13,6 +13,39 @@ import {
 } from 'recharts';
 import { cn } from '../../lib/utils';
 
+// Fallback hue for a series whose funnel isn't in `funnelColors` (e.g. "Sem
+// origem"), so it never crashes — real funnels always come from the prop.
+const UNKNOWN_FUNNEL_HUE = '#64748b';
+
+// Secondary channel for line series beyond the first (which is always a solid
+// Bar): with 10 selectable metrics sharing 8 CVD-safe hues, a couple of pairs
+// sit closer than ideal, so pattern — not just hue — carries identity too.
+// Index 0 is the Bar slot; index 1 (the first Line) stays solid.
+const LINE_DASH_PATTERNS = [undefined, undefined, '7 4', '2 3', '10 3 2 3'];
+
+function hexToRgb(hex: string) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function mixHex(hex: string, target: string, amount: number) {
+  const a = hexToRgb(hex);
+  const b = hexToRgb(target);
+  const mix = (x: number, y: number) => Math.max(0, Math.min(255, Math.round(x + (y - x) * amount)));
+  return `#${[mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+// Main products: lighter tints of the family hue, base color first.
+function familyPalette(baseHex: string, count: number) {
+  return Array.from({ length: count }, (_, i) => mixHex(baseHex, '#ffffff', i * 0.22));
+}
+
+// Order Bumps: darker/muted tints of the same family hue — a related but
+// visually receded variant, not a competing identity.
+function familyOrderBumpPalette(baseHex: string, count: number) {
+  return Array.from({ length: count }, (_, i) => mixHex(baseHex, '#0F1115', 0.35 + i * 0.15));
+}
+
 interface DailyChartSectionProps {
   dailyMetrics: any[];
   selectedMetrics: string[];
@@ -22,6 +55,10 @@ interface DailyChartSectionProps {
   comparePrevious: boolean;
   setComparePrevious: React.Dispatch<React.SetStateAction<boolean>>;
   METRIC_CONFIG: Record<string, any>;
+  // Name -> hex, built from the same funnel list and index-based palette
+  // that colors the funnel tags/checkboxes in Dashboard.tsx, so a funnel's
+  // color is identical everywhere it appears, never guessed from its name.
+  funnelColors: Record<string, string>;
   formatCurrency: (val: number) => string;
   formatNumber: (val: number) => string;
 }
@@ -35,21 +72,17 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   comparePrevious,
   setComparePrevious,
   METRIC_CONFIG,
+  funnelColors,
   formatCurrency,
   formatNumber
 }) => {
   const hasCurrencyMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type === 'currency');
   const hasQuantityMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type !== 'currency');
-  // Each funnel owns a color family; Order Bumps use the darker/accent end of it.
-  const strategyPalette = ['#00E5A8', '#14B8A6', '#34D399', '#2DD4BF'];
-  const strategyOrderBumpPalette = ['#A3E635', '#65A30D', '#4D7C0F'];
-  const managementPalette = ['#60A5FA', '#6366F1', '#818CF8', '#A78BFA'];
-  const managementOrderBumpPalette = ['#E879F9', '#C026D3', '#A21CAF'];
-  const additionalPalettes = [
-    { main: ['#FB923C', '#F97316', '#EA580C'], orderBump: ['#FDE047', '#FACC15', '#CA8A04'] },
-    { main: ['#F472B6', '#EC4899', '#DB2777'], orderBump: ['#FDA4AF', '#FB7185', '#E11D48'] },
-    { main: ['#22D3EE', '#06B6D4', '#0891B2'], orderBump: ['#A5F3FC', '#67E8F9', '#22D3EE'] }
-  ];
+  // Each funnel keeps the exact hue shown on its tag/checkbox elsewhere in the
+  // dashboard; products within it are lighter tints of that hue, Order Bumps
+  // are darker/muted tints — an ordinal ramp per family rather than a second,
+  // unrelated hue (legend text already labels "OB", so the ramp only needs
+  // to read as "same family, different item").
   const productTotals: Record<string, number> = dailyMetrics.reduce((totals: Record<string, number>, day: any) => {
     Object.entries(day.productSales || {}).forEach(([product, sales]) => {
       totals[product] = (totals[product] || 0) + Number(sales || 0);
@@ -92,19 +125,10 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   };
   const productColor = (series: string) => {
     const { funnel, isOrderBump } = getSeriesMeta(series);
-    const knownFunnels = Array.from(new Set([...mainProducts, ...orderBumpProducts].map(([name]) => getSeriesMeta(name).funnel)));
-    const palette = /estrat(é|e)gia/i.test(funnel)
-      ? (isOrderBump ? strategyOrderBumpPalette : strategyPalette)
-      : /gest(ã|a)o/i.test(funnel)
-        ? (isOrderBump ? managementOrderBumpPalette : managementPalette)
-        : (() => {
-            const paletteIndex = Math.max(knownFunnels.indexOf(funnel) - 2, 0) % additionalPalettes.length;
-            const family = additionalPalettes[paletteIndex];
-            return isOrderBump ? family.orderBump : family.main;
-          })();
-    const index = (isOrderBump ? orderBumpProducts : mainProducts)
-      .filter(([name]) => getSeriesMeta(name).funnel === funnel)
-      .findIndex(([name]) => name === series);
+    const baseHue = funnelColors[funnel] || UNKNOWN_FUNNEL_HUE;
+    const siblings = (isOrderBump ? orderBumpProducts : mainProducts).filter(([name]) => getSeriesMeta(name).funnel === funnel);
+    const palette = isOrderBump ? familyOrderBumpPalette(baseHue, siblings.length) : familyPalette(baseHue, siblings.length);
+    const index = siblings.findIndex(([name]) => name === series);
     return palette[Math.max(index, 0) % palette.length];
   };
   const productChartData = dailyMetrics.map((day) => {
@@ -116,30 +140,30 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   });
 
   return (
-    <div className="bg-[#151922]/95 rounded-[8px] border border-white/10 p-5 sm:p-6 shadow-[0_18px_52px_rgba(0,0,0,0.22)]">
+    <div className="bg-[var(--panel)]/95 rounded-[var(--radius-panel)] border border-[var(--border-hairline)] p-5 sm:p-6 shadow-[var(--elevation-2)]">
       <div className="flex flex-col gap-4 mb-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-bold text-white">Histórico diário</h3>
+            <h3 className="text-[length:var(--type-section)] font-bold text-white">Histórico diário</h3>
             <p className="mt-1 text-sm text-zinc-400 font-medium">Selecione até cinco métricas para comparar.</p>
           </div>
           <button
             onClick={() => setSelectedMetrics([])}
-            className="min-h-11 self-start sm:self-auto text-xs font-mono font-bold px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.04] rounded-[8px] transition-colors border border-white/10 cursor-pointer"
+            className="min-h-11 self-start sm:self-auto text-xs font-bold px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.04] rounded-[var(--radius-control)] transition-colors border border-[var(--border-hairline)] cursor-pointer"
           >
             Limpar seleção
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mr-1">Análise</span>
+        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-hairline)] pt-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 mr-1">Análise</span>
           <button
             type="button"
             onClick={() => setComparePrevious(prev => !prev)}
             aria-pressed={comparePrevious}
             className={cn(
-              "min-h-11 flex items-center gap-2 px-3 py-2 border rounded-[8px] text-xs font-mono font-bold transition-colors",
+              "min-h-11 flex items-center gap-2 px-3 py-2 border rounded-[var(--radius-control)] text-xs font-bold transition-colors",
               comparePrevious
-                ? "bg-[#00FFBB]/12 border-[#00FFBB]/50 text-[#00FFBB]"
+                ? "bg-[var(--selection-subtle)] border-[var(--selection)]/50 text-[var(--selection)]"
                 : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
             )}
           >
@@ -150,7 +174,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
             onClick={() => setShowMovingAverage(prev => !prev)}
             aria-pressed={showMovingAverage}
             className={cn(
-              "min-h-11 flex items-center gap-2 cursor-pointer select-none text-xs font-mono font-bold px-3 py-2 rounded-[8px] border transition-colors",
+              "min-h-11 flex items-center gap-2 cursor-pointer select-none text-xs font-bold px-3 py-2 rounded-[var(--radius-control)] border transition-colors",
               showMovingAverage
                 ? "bg-[#38BDF8]/12 border-[#38BDF8]/50 text-[#A8D9FF]"
                 : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
@@ -243,16 +267,17 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                       yAxisId={yAxisId} 
                     />
                   ) : (
-                    <Line 
-                      key={key} 
-                      type="monotone" 
-                      dataKey={key} 
-                      name={config.label} 
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      name={config.label}
                       stroke={config.color}
-                      strokeWidth={2.5} 
-                      dot={{ r: 3.5, strokeWidth: 1.5, fill: '#121212' }} 
-                      activeDot={{ r: 5 }} 
-                      yAxisId={yAxisId} 
+                      strokeWidth={2.5}
+                      strokeDasharray={LINE_DASH_PATTERNS[index % LINE_DASH_PATTERNS.length]}
+                      dot={{ r: 3.5, strokeWidth: 1.5, fill: '#121212' }}
+                      activeDot={{ r: 5 }}
+                      yAxisId={yAxisId}
                     />
                   )}
 
@@ -279,9 +304,9 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
       </div>
 
       {products.length > 0 && (
-        <section className="mt-8 border-t border-white/10 pt-6">
+        <section className="mt-8 border-t border-[var(--border-hairline)] pt-6">
           <div className="mb-4">
-            <h3 className="text-lg font-bold text-white">Vendas por produto e Order Bump</h3>
+            <h3 className="text-[length:var(--type-section)] font-bold text-white">Vendas por produto e Order Bump</h3>
             <p className="mt-1 text-sm text-zinc-400 font-medium">Produto principal e Order Bump vendidos por dia no período selecionado.</p>
           </div>
           <div className="h-[260px] sm:h-[300px] w-full">

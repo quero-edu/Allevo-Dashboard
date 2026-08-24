@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Calendar, RotateCcw, LayoutDashboard, Layers, Disc, MousePointer2, Package, 
   DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, ChevronRight, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X, Pencil, Trash2,
-  ShieldCheck, LogOut, UserCheck, Shield, Maximize2, PanelLeftClose, PanelLeftOpen
+  ShieldCheck, LogOut, UserCheck, Shield, Maximize2, PanelLeftClose, PanelLeftOpen, History
 } from 'lucide-react';
 import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchDashboardFunnels, fetchSpreadsheetData, updateDashboardFunnel } from '../services/api';
 import { cn } from '../lib/utils';
@@ -1976,11 +1976,36 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       <span className="font-medium">Incluir faturamento dos produtos no total global</span>
                     </label>
                   )}
-                  <div className="flex items-center justify-between gap-4 mb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <span className="text-sm font-bold uppercase tracking-[0.08em] text-[#00FFBB] flex items-center gap-1.5">
                       <Zap size={14} className="fill-[#00FFBB]" /> Principais KPIs
                     </span>
-                    <span className="text-sm text-zinc-400 font-medium hidden sm:inline">Clique em uma métrica para destacar no gráfico</span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm text-zinc-400 font-medium hidden sm:inline">Clique em uma métrica para destacar no gráfico</span>
+                      <button
+                        type="button"
+                        onClick={() => setComparePrevious((prev) => !prev)}
+                        aria-pressed={comparePrevious}
+                        className={cn(
+                          "min-h-11 flex items-center gap-2 cursor-pointer select-none text-xs font-bold px-3 py-2 rounded-[var(--radius-control)] border transition-colors",
+                          comparePrevious
+                            ? "bg-[var(--selection-subtle)] border-[var(--selection)]/50 text-[var(--selection)]"
+                            : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-all shrink-0",
+                          comparePrevious
+                            ? "bg-[var(--selection)] border-[var(--selection)] shadow-sm shadow-[var(--selection)]/30"
+                            : "bg-[#1C1C1C] border-[#383838]"
+                        )}>
+                          {comparePrevious && <Check size={10} className="text-white" strokeWidth={3} />}
+                        </div>
+                        <span className="flex items-center gap-1.5">
+                          <History size={13} className="text-[var(--selection)]" /> Comparar período
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5">
@@ -2128,8 +2153,6 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   setSelectedMetrics={setSelectedMetrics}
                   showMovingAverage={showMovingAverage}
                   setShowMovingAverage={setShowMovingAverage}
-                  comparePrevious={comparePrevious}
-                  setComparePrevious={setComparePrevious}
                   METRIC_CONFIG={METRIC_CONFIG}
                   funnelColors={funnelColors}
                   formatCurrency={formatCurrency}

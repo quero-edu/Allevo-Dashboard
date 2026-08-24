@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Check, History } from 'lucide-react';
+import { Activity, Check } from 'lucide-react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -52,8 +52,6 @@ interface DailyChartSectionProps {
   setSelectedMetrics: React.Dispatch<React.SetStateAction<string[]>>;
   showMovingAverage: boolean;
   setShowMovingAverage: React.Dispatch<React.SetStateAction<boolean>>;
-  comparePrevious: boolean;
-  setComparePrevious: React.Dispatch<React.SetStateAction<boolean>>;
   METRIC_CONFIG: Record<string, any>;
   // Name -> hex, built from the same funnel list and index-based palette
   // that colors the funnel tags/checkboxes in Dashboard.tsx, so a funnel's
@@ -69,8 +67,6 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   setSelectedMetrics,
   showMovingAverage,
   setShowMovingAverage,
-  comparePrevious,
-  setComparePrevious,
   METRIC_CONFIG,
   funnelColors,
   formatCurrency,
@@ -158,38 +154,25 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 mr-1">Análise</span>
           <button
             type="button"
-            onClick={() => setComparePrevious(prev => !prev)}
-            aria-pressed={comparePrevious}
-            className={cn(
-              "min-h-11 flex items-center gap-2 px-3 py-2 border rounded-[var(--radius-control)] text-xs font-bold transition-colors",
-              comparePrevious
-                ? "bg-[var(--selection-subtle)] border-[var(--selection)]/50 text-[var(--selection)]"
-                : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
-            )}
-          >
-            <History size={14} /> Comparar período
-          </button>
-          <button
-            type="button"
             onClick={() => setShowMovingAverage(prev => !prev)}
             aria-pressed={showMovingAverage}
             className={cn(
               "min-h-11 flex items-center gap-2 cursor-pointer select-none text-xs font-bold px-3 py-2 rounded-[var(--radius-control)] border transition-colors",
               showMovingAverage
-                ? "bg-[#38BDF8]/12 border-[#38BDF8]/50 text-[#A8D9FF]"
+                ? "bg-[var(--selection-subtle)] border-[var(--selection)]/50 text-[var(--selection)]"
                 : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
             )}
           >
             <div className={cn(
               "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-all shrink-0",
-              showMovingAverage 
-                ? "bg-[#38BDF8] border-[#38BDF8] shadow-sm shadow-[#38BDF8]/30" 
+              showMovingAverage
+                ? "bg-[var(--selection)] border-[var(--selection)] shadow-sm shadow-[var(--selection)]/30"
                 : "bg-[#1C1C1C] border-[#383838]"
             )}>
-              {showMovingAverage && <Check size={10} color="#000000" stroke="#000000" strokeWidth={3} className="text-black stroke-black" />}
+              {showMovingAverage && <Check size={10} className="text-white" strokeWidth={3} />}
             </div>
             <span className="flex items-center gap-1.5">
-              <Activity size={13} className="text-[#38BDF8]" /> Média Móvel (7D)
+              <Activity size={13} className="text-[var(--selection)]" /> Média Móvel (7D)
             </span>
           </button>
         </div>

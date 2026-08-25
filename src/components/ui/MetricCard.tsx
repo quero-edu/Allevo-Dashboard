@@ -39,8 +39,11 @@ export function MetricCard({
       aria-pressed={selected}
       aria-label={`${title}: ${value}. ${selected ? 'Remover do gráfico' : 'Adicionar ao gráfico'}`}
       className={cn(
-        'metric-card appearance-none rounded-[var(--radius-panel)] border p-4 flex flex-col justify-between transition-all duration-[var(--motion-base)] relative overflow-hidden text-left w-full',
-        isHero ? 'ring-1 ring-[var(--brand-strategy)]/15 hover:border-[var(--brand-strategy)]/50' : 'hover:border-slate-500/40',
+        'metric-card appearance-none rounded-[var(--radius-panel)] border p-4 flex flex-col justify-between transition-all duration-[var(--motion-base)] relative text-left w-full',
+        // overflow-hidden only clips the isHero corner ribbon — applying it
+        // unconditionally was clipping the value/comparison text in compact
+        // cards whenever a long currency amount needed to wrap to 2 lines.
+        isHero ? 'overflow-hidden ring-1 ring-[var(--brand-strategy)]/15 hover:border-[var(--brand-strategy)]/50' : 'hover:border-slate-500/40',
         onClick && 'cursor-pointer',
         selected && 'ring-2 ring-[var(--selection)]/70 border-[var(--selection)]/60 bg-[var(--surface-2)]',
         className

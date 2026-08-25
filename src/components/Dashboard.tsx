@@ -129,6 +129,11 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
   const [activeTab, setActiveTab] = useState('Geral');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // "Outras Métricas Operacionais" starts collapsed — the Geral tab opens
+  // dense (10 cards + 2 charts) even before any funnel filtering; letting
+  // the 6 secondary cards default to hidden gives the 4 hero KPIs and the
+  // chart room to be the first thing read.
+  const [showSecondaryMetrics, setShowSecondaryMetrics] = useState(false);
   const [dateRange, setDateRange] = useState('7D');
   const [includeProductRevenue, setIncludeProductRevenue] = useState(false);
   const [comparePrevious, setComparePrevious] = useState(true);
@@ -2152,18 +2157,27 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('ticketMedio')}
                       comparison={comp.ticketMedio}
                       comparisonLabel={comparisonLabel}
+                      breakdown={buildBreakdown('ticketMedio', formatCurrency)}
                     />
                   </div>
                 </div>
 
                 {/* SECOND ROW: SECONDARY METRICS */}
                 <div>
-                  <span className="text-sm font-bold uppercase tracking-[0.08em] text-zinc-400 mb-3 block">
+                  <button
+                    type="button"
+                    onClick={() => setShowSecondaryMetrics((prev) => !prev)}
+                    aria-expanded={showSecondaryMetrics}
+                    aria-controls="secondary-metrics-grid"
+                    className="min-h-11 flex items-center gap-1.5 text-sm font-bold uppercase tracking-[0.08em] text-zinc-400 hover:text-zinc-200 transition-colors mb-3"
+                  >
+                    <ChevronRight size={16} className={cn("transition-transform duration-200", showSecondaryMetrics && "rotate-90")} />
                     Outras Métricas Operacionais
-                  </span>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                    <MetricCard 
+                  </button>
+
+                  {showSecondaryMetrics && (
+                  <div id="secondary-metrics-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                    <MetricCard
                       id="lucroTotal"
                       title="Lucro Total"
                       value={formatCurrency(geral.lucroTotal)}
@@ -2240,8 +2254,10 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       comparison={comp.conversaoOrderBump}
                       comparisonLabel={comparisonLabel}
                       className="metric-card--compact"
+                      breakdown={buildBreakdown('conversaoOrderBump', formatPercent)}
                     />
                   </div>
+                  )}
                 </div>
 
                 <DailyChartSection

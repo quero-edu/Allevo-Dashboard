@@ -255,18 +255,21 @@ export const buildPreviousDateFilter = (range: string) => {
   };
 };
 
+// Kept short and uniform on purpose: MetricCard's comparison row has a fixed
+// CSS `truncate` safety net, but a label this long by design was clipping
+// inconsistently across card widths instead of only in genuine edge cases.
 export const getPreviousPeriodLabel = (range: string, custom: { start: string; end: string }) => {
   if (range === 'MÁXIMO') return 'Sem per. anterior';
-  if (range === 'HOJE') return 'vs. Ontem';
-  if (range === 'ONTEM') return 'vs. Anteontem';
-  if (range === 'ONTEM+HOJE') return 'vs. 2d anteriores';
-  if (range === '3D') return 'vs. 3d anteriores';
-  if (range === '7D') return 'vs. 7d anteriores';
-  if (range === '14D') return 'vs. 14d anteriores';
-  if (range === '30D') return 'vs. 30d anteriores';
-  if (range === 'MES_ATUAL') return 'vs. Mês Anterior';
-  if (range.startsWith('CUSTOM:')) return 'vs. per. anterior equiv.';
-  return 'vs. período anterior';
+  if (range === 'HOJE') return 'vs. ontem';
+  if (range === 'ONTEM') return 'vs. anteontem';
+  if (range === 'ONTEM+HOJE') return 'vs. 2d ant.';
+  if (range === '3D') return 'vs. 3d ant.';
+  if (range === '7D') return 'vs. 7d ant.';
+  if (range === '14D') return 'vs. 14d ant.';
+  if (range === '30D') return 'vs. 30d ant.';
+  if (range === 'MES_ATUAL') return 'vs. mês ant.';
+  if (range.startsWith('CUSTOM:')) return 'vs. per. equiv.';
+  return 'vs. per. ant.';
 };
 
 export const calculateComparison = (

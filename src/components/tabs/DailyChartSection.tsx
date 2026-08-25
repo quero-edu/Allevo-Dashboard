@@ -73,7 +73,10 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   formatNumber
 }) => {
   const hasCurrencyMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type === 'currency');
-  const hasQuantityMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type !== 'currency');
+  const hasQuantityMetric = selectedMetrics.some((key) => key !== 'roas' && METRIC_CONFIG[key]?.type !== 'currency');
+  // ROAS gets its own right-side axis: sharing "number" with count metrics
+  // like Vendas (which run 0-30+) squashed its ~1-3x range unreadably flat.
+  const hasRoasMetric = selectedMetrics.includes('roas');
   // Each funnel keeps the exact hue shown on its tag/checkbox elsewhere in the
   // dashboard; products within it are lighter tints of that hue, Order Bumps
   // are darker/muted tints — an ordinal ramp per family rather than a second,
@@ -131,6 +134,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
     const point: Record<string, string | number> = { date: day.date };
     products.forEach((product, index) => {
       point[`product_${index}`] = Number(day.productSales?.[product] || 0);
+      point[`product_${index}_mm7`] = Number(day.productSalesMM7?.[product] || 0);
     });
     return point;
   });
@@ -195,12 +199,22 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
               />
             )}
             {hasQuantityMetric && (
-              <YAxis 
+              <YAxis
                 yAxisId="number"
                 orientation="right"
                 tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }}
-                tickLine={false} 
-                axisLine={false} 
+                tickLine={false}
+                axisLine={false}
+              />
+            )}
+            {hasRoasMetric && (
+              <YAxis
+                yAxisId="roas"
+                orientation="right"
+                tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(val) => `${val}x`}
               />
             )}
             
@@ -233,21 +247,21 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
             />
             <Legend wrapperStyle={{ paddingTop: '20px', fontFamily: 'monospace', fontSize: '12px' }} iconType="circle" />
             
-            {selectedMetrics.map((key, index) => {
+            {(() => { let lineIndex = 0; return selectedMetrics.map((key) => {
               const config = METRIC_CONFIG[key];
               if (!config) return null;
-              const yAxisId = config.type === 'currency' ? 'currency' : 'number';
+              const yAxisId = config.type === 'currency' ? 'currency' : key === 'roas' ? 'roas' : 'number';
 
               return (
                 <React.Fragment key={key}>
-                  {index === 0 ? (
-                    <Bar 
-                      key={key} 
-                      dataKey={key} 
-                      name={config.label} 
-                      fill={config.color} 
-                      radius={[4, 4, 0, 0]} 
-                      yAxisId={yAxisId} 
+                  {config.renderType === 'bar' ? (
+                    <Bar
+                      key={key}
+                      dataKey={key}
+                      name={config.label}
+                      fill={config.color}
+                      radius={[4, 4, 0, 0]}
+                      yAxisId={yAxisId}
                     />
                   ) : (
                     <Line
@@ -257,7 +271,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                       name={config.label}
                       stroke={config.color}
                       strokeWidth={2.5}
-                      strokeDasharray={LINE_DASH_PATTERNS[index % LINE_DASH_PATTERNS.length]}
+                      strokeDasharray={LINE_DASH_PATTERNS[lineIndex++ % LINE_DASH_PATTERNS.length]}
                       dot={{ r: 3.5, strokeWidth: 1.5, fill: '#121212' }}
                       activeDot={{ r: 5 }}
                       yAxisId={yAxisId}
@@ -281,7 +295,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                   )}
                 </React.Fragment>
               );
-            })}
+            }); })()}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -299,7 +313,12 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                 <XAxis dataKey="date" tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#262626' }} dy={10} />
                 <YAxis allowDecimals={false} tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
                 <Tooltip
-                  formatter={(value: number, name: string) => [formatNumber(value), fullSeriesLabel(name)]}
+                  formatter={(value: number, name: string) => {
+                    const isMM = typeof name === 'string' && name.startsWith('MM 7D · ');
+                    const rawKey = isMM ? name.replace(/^MM 7D · /, '') : name;
+                    const label = isMM ? `MM 7D · ${fullSeriesLabel(rawKey)}` : fullSeriesLabel(rawKey);
+                    return [formatNumber(value), label];
+                  }}
                   contentStyle={{ backgroundColor: '#151922', borderColor: 'rgba(148, 163, 184, 0.18)', borderRadius: '8px', color: '#EDEDED', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '12px' }}
                 />
                 <Legend
@@ -315,6 +334,21 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                     stackId="products"
                     fill={productColor(product)}
                     radius={index === products.length - 1 ? [4, 4, 0, 0] : undefined}
+                  />
+                ))}
+                {showMovingAverage && products.map((product, index) => (
+                  <Line
+                    key={`${product}_mm7`}
+                    type="monotone"
+                    dataKey={`product_${index}_mm7`}
+                    name={`MM 7D · ${product}`}
+                    legendType="none"
+                    stroke={productColor(product)}
+                    strokeWidth={2}
+                    strokeDasharray="5 4"
+                    strokeOpacity={0.85}
+                    dot={false}
+                    activeDot={{ r: 4 }}
                   />
                 ))}
               </ComposedChart>

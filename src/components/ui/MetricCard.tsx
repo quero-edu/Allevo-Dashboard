@@ -23,11 +23,14 @@ export interface MetricCardProps {
   } | null;
   comparisonLabel?: string;
   onClick?: () => void;
+  /** Per-funnel values shown as a colored-dot legend when 2-3 funnels are
+   * selected; the big `value` above stays the combined total either way. */
+  breakdown?: { name: string; color: string; value: string }[];
 }
 
 export function MetricCard({
   title, value, subtext, icon, valueColor, className, selected, isHero, heroTag,
-  comparison, comparisonLabel, onClick,
+  comparison, comparisonLabel, onClick, breakdown,
 }: MetricCardProps) {
   return (
     <button
@@ -72,6 +75,16 @@ export function MetricCard({
       <div className="mb-1">
         <h3 data-metric-value className={cn('tabular-nums mb-1 transition-colors', valueColor || 'text-white')}>{value}</h3>
         <p data-metric-subtext className="text-zinc-400 font-normal">{subtext}</p>
+        {breakdown && breakdown.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            {breakdown.map((item) => (
+              <span key={item.name} title={item.name} aria-label={`${item.name}: ${item.value}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-300 tabular-nums">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                {item.value}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {comparison && (

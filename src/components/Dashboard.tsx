@@ -81,8 +81,8 @@ function getCreativeThumbnail(creativeName: string, customImage?: string) {
 // distinct line-dash pattern per series as a second channel for exactly
 // those cases, on top of the legend/tooltip labels.
 const METRIC_CONFIG: Record<string, { label: string, color: string, type: 'currency' | 'number' | 'percent', renderType: 'bar' | 'line' }> = {
-  investimentoTotal: { label: 'Investimento Total', color: '#bf7d23', type: 'currency', renderType: 'bar' },
-  vendasTrafego: { label: 'Livros via Tráfego', color: '#1885c4', type: 'number', renderType: 'line' },
+  investimentoTotal: { label: 'Investimento Total', color: '#bf7d23', type: 'currency', renderType: 'line' },
+  vendasTrafego: { label: 'Livros via Tráfego', color: '#1885c4', type: 'number', renderType: 'bar' },
   faturamentoTotal: { label: 'Faturamento Total', color: '#59ac44', type: 'currency', renderType: 'line' },
   lucroTotal: { label: 'Lucro Total', color: '#b8538c', type: 'currency', renderType: 'line' },
   ticketMedio: { label: 'Ticket Médio', color: '#7b68ee', type: 'currency', renderType: 'line' },
@@ -146,9 +146,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   // Expanded Campaign rows
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [selectedSourceIndices, setSelectedSourceIndices] = useState<number[]>([]);
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['investimentoTotal', 'vendasTrafego']);
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['investimentoTotal', 'faturamentoTotal', 'roas', 'vendasIngressos']);
   const [funnels, setFunnels] = useState<DashboardFunnel[]>(DEFAULT_DASHBOARD_FUNNELS);
-  const [selectedFunnelIds, setSelectedFunnelIds] = useState<string[]>(['estrategia']);
+  const [selectedFunnelIds, setSelectedFunnelIds] = useState<string[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isAddFunnelConfirmOpen, setIsAddFunnelConfirmOpen] = useState(false);
   const [isAddFunnelModalOpen, setIsAddFunnelModalOpen] = useState(false);
@@ -269,13 +269,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         setFunnels(items);
         setSelectedFunnelIds((current) => {
           const available = current.filter((id) => items.some((funnel) => funnel.id === id));
-          return available.length > 0 ? available : items.slice(0, 1).map((funnel) => funnel.id);
+          // Default is "all funnels" on first load; a returning user's saved
+          // selection (if still valid) is preserved instead of being reset.
+          return available.length > 0 ? available : items.map((funnel) => funnel.id);
         });
       })
       .catch((error) => {
         console.warn('Não foi possível carregar o catálogo de funis; mantendo os funis-base:', error);
         setFunnels((current) => current.length > 0 ? current : DEFAULT_DASHBOARD_FUNNELS);
-        setSelectedFunnelIds((current) => current.length > 0 ? current : ['estrategia']);
+        setSelectedFunnelIds((current) => current.length > 0 ? current : DEFAULT_DASHBOARD_FUNNELS.map((funnel) => funnel.id));
       });
   }, []);
 
@@ -389,6 +391,11 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
         vendasOrderBump: 0,
         conversaoOrderBump: 0,
       },
+      geralPorFunil: {} as Record<string, {
+        investimentoTotal: number; faturamentoTotal: number; lucroTotal: number; ticketMedio: number;
+        vendasIngressos: number; vendasTrafego: number; cpaTrafego: number; cpaTotal: number; roas: number;
+        vendasOrderBump: number; conversaoOrderBump: number;
+      }>,
       campaigns: [] as any[],
       creatives: [] as any[],
       sources: [] as any[],
@@ -661,6 +668,52 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     const cpaTrafego = vendasTrafego > 0 ? investimentoTotal / vendasTrafego : 0;
     const cpaTotal = vendasIngressos > 0 ? investimentoTotal / vendasIngressos : 0;
     const roas = investimentoTotal > 0 ? faturamentoTotal / investimentoTotal : 0;
+
+    // Per-funnel breakdown for the KPI cards (shown when 2-3 funnels are
+    // selected). Grouped by each row's own `Funil` column — which already
+    // matches the funnel catalog's `name` exactly — rather than by touching
+    // the combined `geral` math above, so the already-correct combined
+    // numbers can never regress. Does not replicate the FGP/paid-launch
+    // revenue overlay (`includeProductRevenue`); it's the base ticket sales
+    // per funnel.
+    const geralPorFunil: Record<string, {
+      investimentoTotal: number; faturamentoTotal: number; lucroTotal: number; ticketMedio: number;
+      vendasIngressos: number; vendasTrafego: number; cpaTrafego: number; cpaTotal: number; roas: number;
+      vendasOrderBump: number; conversaoOrderBump: number;
+    }> = {};
+    {
+      const funnelNames = new Set<string>();
+      metaData.forEach((row: any) => { const f = String(row['Funil'] || '').trim(); if (f) funnelNames.add(f); });
+      filteredBuyers.forEach((row: any) => { const f = String(row['Funil'] || '').trim(); if (f) funnelNames.add(f); });
+
+      funnelNames.forEach((funnelName) => {
+        const fMeta = metaData.filter((row: any) => String(row['Funil'] || '').trim() === funnelName);
+        const fBuyers = filteredBuyers.filter((row: any) => String(row['Funil'] || '').trim() === funnelName);
+
+        const fInvestimentoTotal = fMeta.reduce((acc: number, row: any) => acc + parseValue(row['Gasto']), 0) * 1.1215;
+        const fFaturamentoTotal = fBuyers.reduce((acc: number, row: any) => {
+          const valStr = row['Valor'] || row['Valor Bruto'] || row['Preço'] || row['Faturamento'] || row['Valor Pago'] || '0';
+          return acc + parseValue(valStr);
+        }, 0);
+        const fVendasIngressos = fBuyers.length;
+        const fVendasOrderBump = fBuyers.filter((row: any) => String(row['Order Bump'] || '').trim() !== '').length;
+        const fVendasTrafego = fBuyers.filter(isTrafficSale).length;
+
+        geralPorFunil[funnelName] = {
+          investimentoTotal: fInvestimentoTotal,
+          faturamentoTotal: fFaturamentoTotal,
+          lucroTotal: fFaturamentoTotal - fInvestimentoTotal,
+          ticketMedio: fVendasIngressos > 0 ? fFaturamentoTotal / fVendasIngressos : 0,
+          vendasIngressos: fVendasIngressos,
+          vendasTrafego: fVendasTrafego,
+          cpaTrafego: fVendasTrafego > 0 ? fInvestimentoTotal / fVendasTrafego : 0,
+          cpaTotal: fVendasIngressos > 0 ? fInvestimentoTotal / fVendasIngressos : 0,
+          roas: fInvestimentoTotal > 0 ? fFaturamentoTotal / fInvestimentoTotal : 0,
+          vendasOrderBump: fVendasOrderBump,
+          conversaoOrderBump: fVendasIngressos > 0 ? fVendasOrderBump / fVendasIngressos : 0,
+        };
+      });
+    }
 
     // --- CÁLCULO DE COMPARAÇÃO COM PERÍODO ANTERIOR ---
     let prevGeral: any = null;
@@ -1212,11 +1265,23 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       return aVal.localeCompare(bVal);
     });
 
+    // Every distinct product/order-bump series key seen across the full
+    // history, so the moving average can be computed for each one below.
+    const allProductKeys = new Set<string>();
+    allDailyList.forEach((d: any) => Object.keys(d.productSales || {}).forEach((k) => allProductKeys.add(k)));
+
     // Compute 7-day Moving Average across full history
     allDailyList.forEach((day: any, idx: number) => {
       const windowStart = Math.max(0, idx - 6);
       const windowDays = allDailyList.slice(windowStart, idx + 1);
       const windowLen = windowDays.length;
+
+      const productSalesMM7: Record<string, number> = {};
+      allProductKeys.forEach((key) => {
+        const sum = windowDays.reduce((acc, d: any) => acc + (d.productSales?.[key] || 0), 0);
+        productSalesMM7[key] = windowLen > 0 ? sum / windowLen : 0;
+      });
+      day.productSalesMM7 = productSalesMM7;
 
       const sumInvestimento = windowDays.reduce((acc, d) => acc + d.investimentoTotal, 0);
       const sumFaturamento = windowDays.reduce((acc, d) => acc + d.faturamentoTotal, 0);
@@ -1255,6 +1320,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       geral: {
         investimentoTotal, faturamentoTotal, lucroTotal, ticketMedio, vendasIngressos, vendasTrafego, cpaTrafego, cpaTotal, roas, impressoesTotal, cliquesTotal, pageViewsTotal, checkoutsTotal, vendasOrderBump, conversaoOrderBump
       },
+      geralPorFunil,
       prevGeral,
       comparison,
       campaigns,
@@ -1466,6 +1532,19 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   const gestaoFunnel = funnels.find((f) => f.id === 'gestao-ia' || /gest(ã|a)o|projetos\s+com\s+ia/i.test(f.name));
   if (estrategiaFunnel) funnelColors['Estratégia'] = getFunnelColor(funnels, estrategiaFunnel.id);
   if (gestaoFunnel) funnelColors['Gestão IA'] = getFunnelColor(funnels, gestaoFunnel.id);
+
+  // Per-funnel legend rows for the KPI cards — only worth showing when there's
+  // more than one funnel to compare and few enough to fit (2-3). The card's
+  // big number stays the combined total regardless.
+  const buildBreakdown = (metricKey: keyof (typeof metricsData)['geral'], formatter: (val: number) => string) => {
+    if (selectedFunnelTags.length <= 1 || selectedFunnelTags.length > 3) return undefined;
+    return selectedFunnelTags.map((funnel) => ({
+      name: funnel.name,
+      color: getFunnelColor(funnels, funnel.id),
+      value: formatter(metricsData.geralPorFunil[funnel.name]?.[metricKey] ?? 0),
+    }));
+  };
+
   const sourceWarnings = useMemo(() => {
     const diagnostics = Array.isArray(data?.diagnostics) ? data.diagnostics : [];
     return diagnostics.flatMap((item: any) => {
@@ -1613,6 +1692,16 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
 
             <PopoverPanel open={isFunnelMenuOpen} id="funnel-menu" width="w-[min(20rem,calc(100vw-1.5rem))]">
                 <p className="px-2.5 py-2 text-xs text-zinc-400">Selecione os funis para consolidar a análise.</p>
+                <button
+                  role="menuitemcheckbox"
+                  aria-checked={selectedFunnelIds.length === funnels.length}
+                  onClick={() => setSelectedFunnelIds(funnels.map((funnel) => funnel.id))}
+                  className="w-full flex items-center gap-3 px-2.5 py-2.5 text-left rounded-[6px] hover:bg-white/[0.06] transition-colors"
+                >
+                  <span className={cn("w-4 h-4 border rounded-[4px] flex items-center justify-center shrink-0", selectedFunnelIds.length === funnels.length ? "bg-[#00FFBB] border-[#00FFBB] text-[#1A1A1A]" : "border-zinc-500")}>{selectedFunnelIds.length === funnels.length && <Check size={12} strokeWidth={3} />}</span>
+                  <span className="text-sm font-bold text-zinc-100">Todos os funis</span>
+                </button>
+                <div className="h-px bg-white/10 my-1.5" />
                 {funnels.map((funnel) => {
                   const isSelected = selectedFunnelIds.includes(funnel.id);
                   return (
@@ -2021,6 +2110,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('investimentoTotal')}
                       comparison={comp.investimentoTotal}
                       comparisonLabel={comparisonLabel}
+                      breakdown={buildBreakdown('investimentoTotal', formatCurrency)}
                     />
                     <MetricCard 
                       id="faturamentoTotal"
@@ -2034,6 +2124,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('faturamentoTotal')}
                       comparison={comp.faturamentoTotal}
                       comparisonLabel={comparisonLabel}
+                      breakdown={buildBreakdown('faturamentoTotal', formatCurrency)}
                     />
                     <MetricCard 
                       id="cpaTotal"
@@ -2047,6 +2138,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       onClick={() => toggleMetric('cpaTotal')}
                       comparison={comp.cpaTotal}
                       comparisonLabel={comparisonLabel}
+                      breakdown={buildBreakdown('cpaTotal', formatCurrency)}
                     />
                     <MetricCard 
                       id="ticketMedio"
@@ -2083,6 +2175,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       comparison={comp.lucroTotal}
                       comparisonLabel={comparisonLabel}
                       className="metric-card--compact"
+                      breakdown={buildBreakdown('lucroTotal', formatCurrency)}
                     />
                     <MetricCard 
                       id="vendasIngressos"
@@ -2095,6 +2188,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       comparison={comp.vendasIngressos}
                       comparisonLabel={comparisonLabel}
                       className="metric-card--compact"
+                      breakdown={buildBreakdown('vendasIngressos', formatNumber)}
                     />
                     <MetricCard 
                       id="vendasTrafego"
@@ -2107,6 +2201,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       comparison={comp.vendasTrafego}
                       comparisonLabel={comparisonLabel}
                       className="metric-card--compact"
+                      breakdown={buildBreakdown('vendasTrafego', formatNumber)}
                     />
                     <MetricCard 
                       id="cpaTrafego"
@@ -2119,6 +2214,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       comparison={comp.cpaTrafego}
                       comparisonLabel={comparisonLabel}
                       className="metric-card--compact"
+                      breakdown={buildBreakdown('cpaTrafego', formatCurrency)}
                     />
                     <MetricCard 
                       id="roas"
@@ -2131,6 +2227,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                       comparison={comp.roas}
                       comparisonLabel={comparisonLabel}
                       className="metric-card--compact"
+                      breakdown={buildBreakdown('roas', (v) => `${v.toFixed(2)}x`)}
                     />
                     <MetricCard
                       id="conversaoOrderBump"

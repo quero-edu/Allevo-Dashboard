@@ -11,3 +11,6 @@ temp_sheet*.xlsx
 test*.js
 test*.cjs
 fix-*.cjs
+.infra
+.claude
+.impeccable

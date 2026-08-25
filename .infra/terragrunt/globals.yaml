@@ -1,0 +1,12 @@
+project: "allevo-dashboard" # O nome do projeto. Sem o sufixo do ambiente.
+infraPath: ".infra" # Path base do diretório de infra relativo à raiz do repo
+baseSourceConfig:
+  repoName: "Allevo-Dashboard" # Nome do repositório, usado no webhook que dispara o pipeline
+  owner: "quero-edu"
+slack:
+  workspaceId: "T024JGC6U" #Id do workspace da Quero no slack
+  channelId: "C0BSG4XC5GT" #Canal no slack para notificações de alertas/deploy
+
+# Troque para true para usar uma imagem customizada no pipeline via módulo codebuild-ecr
+# Também precisa descomentar dois códigos em .infra/terragrunt/prod/pipeline/terragrunt.hcl
+codebuildEcr: "false"

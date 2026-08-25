@@ -732,6 +732,14 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json({ limit: "32kb" }));
+
+  // Health check para as probes do Kubernetes. Precisa ficar antes de
+  // requireDashboardAuth: com Basic Auth ativo qualquer outra rota responde 401
+  // e o pod nunca ficaria Ready.
+  app.get("/healthz", (_req, res) => {
+    res.status(200).json({ status: "ok", version: process.env.APP_VERSION || "dev" });
+  });
+
   app.use(requireDashboardAuth);
 
   // Endpoint de proxy de imagem para evitar bloqueios de CORS/Referer

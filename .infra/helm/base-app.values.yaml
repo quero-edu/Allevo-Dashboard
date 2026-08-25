@@ -1,0 +1,77 @@
+# Valores compartilhados por todos os ambientes.
+# Os campos abaixo em branco são preenchidos pelo buildspec via --set:
+#   global.clusterName, global.appName, global.project.*, image.repository,
+#   image.tag, serviceAccount.name/annotations e secret.data.
+global:
+  clusterName: "" # Name of the cluster
+  appName: "" # Name of the application
+  project:
+    name: "" # Name of the Project
+    environment: "" # Environment
+
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+app:
+  # server.ts escuta em 0.0.0.0:3000 (porta fixa no código)
+  containerPort: 3000
+
+  # O cadastro de funis é persistido em disco (data/funnels.json).
+  # Definir `volume` faz o chart gerar um StatefulSet com volumeClaimTemplate
+  # (EBS, ReadWriteOnce) em vez de um Deployment.
+  volume:
+    mountPath: /app/data
+    sizeInGigabytes: 1
+
+  env:
+    - name: NODE_ENV
+      value: "production"
+    - name: DASHBOARD_FUNNELS_PATH
+      value: "/app/data/funnels.json"
+
+  # /healthz é registrado antes do middleware de Basic Auth em server.ts;
+  # todas as outras rotas respondem 401 sem credenciais e quebrariam as probes.
+  healthCheck:
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+  terminationGracePeriodSeconds: 30
+
+service:
+  type: NodePort
+  port: 3000
+
+secret:
+  enabled: true
+  data: "" # preenchido pelo buildspec a partir do bag do Secrets Manager
+
+# O volume é ReadWriteOnce e o estado (funnels.json) é local ao pod:
+# escalar horizontalmente daria a cada réplica um PVC e um cadastro de funis
+# diferentes. Mantemos réplica única até o estado sair do disco.
+replicaCount: 1
+autoscaling:
+  mode: Disabled
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

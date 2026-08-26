@@ -71,10 +71,10 @@ export const FontesTab: React.FC<FontesTabProps> = ({
                   <Tooltip
                     formatter={(value: any, name: string, props: any) => [`${value} vendas (${formatCurrency(props.payload.revenue)})`, name]}
                     contentStyle={{
-                      backgroundColor: '#1C1C1C',
-                      borderColor: '#262626',
+                      backgroundColor: 'var(--overlay-bg)',
+                      borderColor: 'var(--chart-grid)',
                       borderRadius: '8px',
-                      color: '#EDEDED',
+                      color: 'var(--text-primary)',
                       fontWeight: 'bold',
                       fontFamily: 'monospace',
                       fontSize: '12px'
@@ -83,12 +83,12 @@ export const FontesTab: React.FC<FontesTabProps> = ({
                 </RechartsPieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex justify-center items-center h-full text-zinc-500 font-medium">Nenhum dado encontrado.</div>
+              <div className="flex justify-center items-center h-full text-[var(--text-subtle)] font-medium">Nenhum dado encontrado.</div>
             )}
           </div>
 
           <div className="mt-6 border-t border-[var(--border-hairline)] pt-6 animate-in fade-in duration-300">
-            <h4 className="text-xs font-bold text-[var(--brand-strategy)] uppercase tracking-wider mb-4">Análise da seleção</h4>
+            <h4 className="text-xs font-bold text-[var(--brand-strategy-ink)] uppercase tracking-wider mb-4">Análise da seleção</h4>
             {(() => {
               const selectedSources = metricsData.sources.filter((s:any) => selectedSourceIndices.includes(s.originalIndex));
               const totalSelectedVendas = selectedSources.reduce((acc: number, curr: any) => acc + curr.count, 0);
@@ -98,20 +98,20 @@ export const FontesTab: React.FC<FontesTabProps> = ({
               return (
                 <div className="flex flex-col gap-2.5">
                   <div className="flex justify-between items-center bg-[var(--surface-3)] p-3 rounded-[var(--radius-control)] border border-[var(--border-hairline)]">
-                    <span className="text-xs font-bold text-[var(--brand-strategy)] uppercase">Vendas na seleção</span>
+                    <span className="text-xs font-bold text-[var(--brand-strategy-ink)] uppercase">Vendas na seleção</span>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-[var(--brand-strategy)] font-mono tabular-nums">{totalSelectedVendas} <span className="text-xs font-medium text-zinc-400">vendas</span></div>
-                      <div className="text-xs text-zinc-300 font-mono tabular-nums">{formatCurrency(totalSelectedReceita)}</div>
+                      <div className="text-sm font-bold text-[var(--brand-strategy-ink)] font-mono tabular-nums">{totalSelectedVendas} <span className="text-xs font-medium text-[var(--text-muted)]">vendas</span></div>
+                      <div className="text-xs text-[var(--text-muted)] font-mono tabular-nums">{formatCurrency(totalSelectedReceita)}</div>
                     </div>
                   </div>
 
                   <div className="flex justify-between items-center bg-[var(--surface-3)]/60 p-2.5 rounded-[var(--radius-control)] border border-[var(--border-hairline)]">
-                    <span className="text-xs text-zinc-400">% das {metricsData.totalSalesWithSource} vendas totais</span>
-                    <span className="text-sm font-bold text-[var(--brand-strategy)] font-mono tabular-nums">{formatPercent(percVendas)}</span>
+                    <span className="text-xs text-[var(--text-muted)]">% das {metricsData.totalSalesWithSource} vendas totais</span>
+                    <span className="text-sm font-bold text-[var(--brand-strategy-ink)] font-mono tabular-nums">{formatPercent(percVendas)}</span>
                   </div>
                   <div className="flex justify-between items-center bg-[var(--surface-3)]/60 p-2.5 rounded-[var(--radius-control)] border border-[var(--border-hairline)]">
-                    <span className="text-xs text-zinc-400">% da receita total</span>
-                    <span className="text-sm font-bold text-[var(--brand-strategy)] font-mono tabular-nums">{formatPercent(metricsData.totalRevenueWithSource > 0 ? totalSelectedReceita / metricsData.totalRevenueWithSource : 0)}</span>
+                    <span className="text-xs text-[var(--text-muted)]">% da receita total</span>
+                    <span className="text-sm font-bold text-[var(--brand-strategy-ink)] font-mono tabular-nums">{formatPercent(metricsData.totalRevenueWithSource > 0 ? totalSelectedReceita / metricsData.totalRevenueWithSource : 0)}</span>
                   </div>
                 </div>
               );
@@ -133,7 +133,7 @@ export const FontesTab: React.FC<FontesTabProps> = ({
                 { title: "Outros", items: metricsData.sources.filter((s:any) => s.category === "Outros") }
               ].filter(g => g.items.length > 0).map((group) => (
                 <div key={group.title} className="flex flex-col gap-3">
-                  <h4 className="flex items-center flex-wrap gap-2 font-bold text-zinc-200 uppercase tracking-tight ml-1 text-xs">
+                  <h4 className="flex items-center flex-wrap gap-2 font-bold text-[var(--text-primary)] uppercase tracking-tight ml-1 text-xs">
                     <span>{group.title}</span>
                     {group.items.length > 1 && (() => {
                       const gSales = group.items.reduce((acc: number, curr: any) => acc + curr.count, 0);
@@ -141,12 +141,12 @@ export const FontesTab: React.FC<FontesTabProps> = ({
                       const gPerc = metricsData.totalSalesWithSource > 0 ? gSales / metricsData.totalSalesWithSource : 0;
                       return (
                         <div className="flex items-center gap-2 mt-px font-mono tabular-nums">
-                          <span className="text-[10px] pb-[2px] text-zinc-600">|</span>
-                          <span className="text-[10px] text-zinc-400 font-bold">{gSales} vendas</span>
-                          <span className="text-[10px] pb-[2px] text-zinc-600">|</span>
-                          <span className="text-[10px] text-zinc-400 font-bold">{formatPercent(gPerc)} do total</span>
-                          <span className="text-[10px] pb-[2px] text-zinc-600">|</span>
-                          <span className="text-[10px] text-[var(--brand-strategy)] font-bold">{formatCurrency(gRev)}</span>
+                          <span className="text-[10px] pb-[2px] text-[var(--text-subtle)]">|</span>
+                          <span className="text-[10px] text-[var(--text-muted)] font-bold">{gSales} vendas</span>
+                          <span className="text-[10px] pb-[2px] text-[var(--text-subtle)]">|</span>
+                          <span className="text-[10px] text-[var(--text-muted)] font-bold">{formatPercent(gPerc)} do total</span>
+                          <span className="text-[10px] pb-[2px] text-[var(--text-subtle)]">|</span>
+                          <span className="text-[10px] text-[var(--brand-strategy-ink)] font-bold">{formatCurrency(gRev)}</span>
                         </div>
                       );
                     })()}
@@ -170,30 +170,30 @@ export const FontesTab: React.FC<FontesTabProps> = ({
                               : [...prev, source.originalIndex]
                           )}
                           className={cn("flex w-full items-center justify-between p-3.5 rounded-[var(--radius-control)] border bg-[var(--surface-3)] cursor-pointer transition-all group text-left",
-                            isSelected ? "border-[var(--selection)] shadow-lg ring-2 ring-[var(--selection)]/25" : "border-[var(--border-hairline)] shadow-sm hover:shadow-md hover:border-white/20"
+                            isSelected ? "border-[var(--selection)] shadow-lg ring-2 ring-[var(--selection)]/25" : "border-[var(--border-hairline)] shadow-sm hover:shadow-md hover:border-[var(--border-strong)]"
                           )}
                         >
                           <div className="flex items-center gap-3.5">
-                            <RankBadge rank={source.rank} className={cn(source.bg, "text-white border-transparent shadow-sm", isSelected && "scale-105")} />
+                            <RankBadge rank={source.rank} className={cn(source.bg, "text-[var(--text-primary)] border-transparent shadow-sm", isSelected && "scale-105")} />
                             <div>
-                              <h4 className="font-bold text-zinc-100 text-sm">{source.name}</h4>
-                              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mt-0.5">{source.category}</p>
+                              <h4 className="font-bold text-[var(--text-primary)] text-sm">{source.name}</h4>
+                              <p className="text-[10px] font-bold text-[var(--text-subtle)] uppercase tracking-wide mt-0.5">{source.category}</p>
                             </div>
                           </div>
 
                           <div className="text-right font-mono tabular-nums">
-                            <div className="font-bold text-zinc-100 text-base">
-                              {formatNumber(source.count)} <span className="text-[10px] font-medium text-zinc-500 uppercase">vendas</span>
+                            <div className="font-bold text-[var(--text-primary)] text-base">
+                              {formatNumber(source.count)} <span className="text-[10px] font-medium text-[var(--text-subtle)] uppercase">vendas</span>
                             </div>
-                            <div className="text-xs text-zinc-400 mt-0.5 flex items-center justify-end gap-2">
+                            <div className="text-xs text-[var(--text-muted)] mt-0.5 flex items-center justify-end gap-2">
                               <span className={cn(
                                 "px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold",
-                                percentage >= 0.2 ? "bg-[var(--brand-strategy)]/15 text-[var(--brand-strategy)]" : "text-zinc-500 bg-black/20"
+                                percentage >= 0.2 ? "bg-[var(--brand-strategy)]/15 text-[var(--brand-strategy-ink)]" : "text-[var(--text-subtle)] bg-black/20"
                               )}>
                                 {formatPercent(percentage)} do total
                               </span>
-                              <span className="text-zinc-700">|</span>
-                              <span className="text-[var(--brand-strategy)] font-bold">{formatCurrency(source.revenue)}</span>
+                              <span className="text-[var(--text-subtle)]">|</span>
+                              <span className="text-[var(--brand-strategy-ink)] font-bold">{formatCurrency(source.revenue)}</span>
                             </div>
                           </div>
                         </button>
@@ -231,27 +231,27 @@ export const FontesTab: React.FC<FontesTabProps> = ({
                 <SortableHeader column="salesOther" activeColumn={pageSort.column} direction={pageSort.direction} onSort={togglePageSort} align="right" className="border-l border-[var(--table-divider)]">Vendas (orgânico/outros)</SortableHeader>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-hairline)] text-zinc-300 font-mono text-xs">
+            <tbody className="divide-y divide-[var(--border-hairline)] text-[var(--text-muted)] font-mono text-xs">
               {sortedPages.map((page: any) => {
                  const taxIC = page.pageViews > 0 ? page.checkouts / page.pageViews : 0;
                  const taxVenda = page.checkouts > 0 ? page.salesMeta / page.checkouts : 0;
                  return (
-                   <tr key={page.url} className="hover:bg-white/[0.045] transition-colors">
+                   <tr key={page.url} className="hover:bg-[var(--hover-wash)] transition-colors">
                      <td className="px-6 py-4 font-sans">
-                       <div className="font-bold text-zinc-100 flex items-center gap-2">
-                         <Monitor size={14} className="text-zinc-500" />
-                         <a href={page.url.startsWith('http') ? page.url : `https://${page.url}`} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--brand-strategy)] transition-colors">
+                       <div className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                         <Monitor size={14} className="text-[var(--text-subtle)]" />
+                         <a href={page.url.startsWith('http') ? page.url : `https://${page.url}`} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--brand-strategy-ink)] transition-colors">
                            {page.slug}
                          </a>
                        </div>
-                       <div className="text-[10px] text-zinc-500 mt-0.5 truncate max-w-[200px] xl:max-w-xs">{page.url}</div>
+                       <div className="text-[10px] text-[var(--text-subtle)] mt-0.5 truncate max-w-[200px] xl:max-w-xs">{page.url}</div>
                      </td>
-                     <td className="px-6 py-4 text-right text-zinc-300 tabular-nums">{formatNumber(page.pageViews)}</td>
-                     <td className="px-6 py-4 text-right text-zinc-300 tabular-nums">{formatNumber(page.checkouts)}</td>
-                     <td className="px-6 py-4 text-right font-bold text-[var(--brand-strategy)] bg-[var(--brand-strategy)]/5 tabular-nums">{formatPercent(taxIC)}</td>
-                     <td className="px-6 py-4 text-right font-bold text-[var(--brand-strategy)] tabular-nums">{formatNumber(page.salesMeta)}</td>
-                     <td className="px-6 py-4 text-right font-bold text-[var(--brand-strategy)] bg-[var(--brand-strategy)]/5 tabular-nums">{formatPercent(taxVenda)}</td>
-                     <td className="px-6 py-4 text-right text-zinc-400 border-l border-[var(--border-hairline)] tabular-nums">{formatNumber(page.salesOther)}</td>
+                     <td className="px-6 py-4 text-right text-[var(--text-muted)] tabular-nums">{formatNumber(page.pageViews)}</td>
+                     <td className="px-6 py-4 text-right text-[var(--text-muted)] tabular-nums">{formatNumber(page.checkouts)}</td>
+                     <td className="px-6 py-4 text-right font-bold text-[var(--brand-strategy-ink)] bg-[var(--brand-strategy)]/5 tabular-nums">{formatPercent(taxIC)}</td>
+                     <td className="px-6 py-4 text-right font-bold text-[var(--brand-strategy-ink)] tabular-nums">{formatNumber(page.salesMeta)}</td>
+                     <td className="px-6 py-4 text-right font-bold text-[var(--brand-strategy-ink)] bg-[var(--brand-strategy)]/5 tabular-nums">{formatPercent(taxVenda)}</td>
+                     <td className="px-6 py-4 text-right text-[var(--text-muted)] border-l border-[var(--border-hairline)] tabular-nums">{formatNumber(page.salesOther)}</td>
                    </tr>
                  )
               })}

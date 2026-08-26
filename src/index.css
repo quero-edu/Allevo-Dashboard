@@ -19,6 +19,18 @@
     --brand-strategy: #00FFBB;
     --brand-strategy-strong: #00D99F;
     --brand-management: #66BEFF;
+    /* -ink pairs: the *fill* token stays the vivid brand hue for buttons and
+       badges (dark ink text sits on top regardless of page theme, so it
+       never needs to change); the *-ink* token is what the same hue looks
+       like used AS text/icon/border directly on the page surface, where
+       the vivid dark-mode hue fails contrast once the surface goes light.
+       Both are identical in dark mode; light mode redefines only -ink. */
+    --brand-strategy-ink: var(--brand-strategy);
+    --selection-ink: var(--brand-management);
+    --accent-purple: #A855F7;
+    --accent-purple-ink: var(--accent-purple);
+    --accent-purple-subtle: #D8B4FE;
+    --accent-purple-subtle-ink: var(--accent-purple-subtle);
     --metric-investment: #F59E0B;
     --metric-revenue: #00E5A8;
     --metric-efficiency: #A3E635;
@@ -58,7 +70,74 @@
     --panel: #151922;
     --panel-elevated: #1C2230;
     --control: #242424;
+    --control-hover: #2E2E2E;
+    --overlay-bg: #1C1C1C;
+    --overlay-border: #383838;
+    --header-bg: #10141B;
+    --chart-tick: #A3A3A3;
+    --chart-grid: #262626;
+    --hover-wash: rgba(255, 255, 255, 0.045);
+    --hover-wash-strong: rgba(255, 255, 255, 0.065);
     --line: rgba(148, 163, 184, 0.16);
+  }
+
+  /* Light theme: every token above gets its light-surface counterpart here.
+     Chart categorical hues (--chart-1..8) are deliberately absent — the
+     dataviz skill's validator confirmed the same 8 hex values pass on both
+     the dark surface (#0F1115) and this light one (#F5F6F8), so re-stepping
+     them would only add a second palette to maintain for no visual gain. */
+  :root[data-theme="light"] {
+    --bg: #F5F6F8;
+    --surface-1: #FFFFFF;
+    --surface-2: #F0F2F5;
+    --surface-3: #E7EAEF;
+    --surface-4: #D3D9E0;
+
+    --text-primary: #12151C;
+    --text-muted: #4B5566;
+    --text-subtle: #5B6472;
+
+    --border-hairline: rgba(15, 23, 42, 0.24);
+    --border-strong: rgba(15, 23, 42, 0.34);
+    --border-input: rgba(15, 23, 42, 0.40);
+
+    /* Contrast-checked against #F5F6F8: brand-strategy-ink 4.92:1,
+       selection-ink 5.36:1, accent-purple-ink 6.75:1,
+       accent-purple-subtle-ink 5.54:1 — all clear WCAG AA (4.5:1). */
+    --brand-strategy-ink: #007A5E;
+    --selection-ink: #0B63C7;
+    --accent-purple-ink: #7C1FC7;
+    --accent-purple-subtle-ink: #8B2FD9;
+
+    --canvas: #F5F6F8;
+    --panel: #FFFFFF;
+    --panel-elevated: #F0F2F5;
+    --control: #FFFFFF;
+    --control-hover: #E7EAEF;
+    --overlay-bg: #FFFFFF;
+    --overlay-border: #D8DCE3;
+    --header-bg: #FFFFFF;
+    --chart-tick: #5B6472;
+    --chart-grid: #E2E5EA;
+    --hover-wash: rgba(15, 23, 42, 0.045);
+    --hover-wash-strong: rgba(15, 23, 42, 0.065);
+    --line: rgba(15, 23, 42, 0.12);
+
+    --table-heading: var(--brand-strategy-ink);
+    --table-hover: rgba(15, 23, 42, 0.045);
+
+    /* Same fill/-ink split as brand-strategy: the vivid metric-* hues stay
+       for badge fills, but comparison-badge TEXT reads directly off the
+       page surface and needs the darkened trio (checked >= 4.5:1 on
+       #F5F6F8). status-positive reuses brand-strategy-ink so every green
+       in light mode — brand, table headings, positive trend — is one hue. */
+    --status-positive: var(--brand-strategy-ink);
+    --status-negative: #C81E3F;
+    --status-warning: #8A5A00;
+    /* --selection is a fill token elsewhere (badges, active toggles) and
+       stays the vivid blue; the focus ring is drawn as an outline directly
+       on the page surface, so it needs the same AA-safe swap as -ink. */
+    --focus-ring: var(--selection-ink);
   }
 
   body {
@@ -66,7 +145,7 @@
       radial-gradient(circle at top left, rgba(62, 232, 181, 0.11), transparent 30rem),
       radial-gradient(circle at 85% 12%, rgba(102, 190, 255, 0.12), transparent 26rem),
       var(--canvas);
-    color: #FFFFFF;
+    color: var(--text-primary);
     font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     letter-spacing: 0;
     font-optical-sizing: auto;
@@ -145,6 +224,12 @@ input,
   color: var(--text-primary);
 }
 
+:root[data-theme="light"] ::selection {
+  /* The vivid brand fill at 30% opacity reads fine as a selection wash on
+     dark; on white it goes too pale to see. Ink tone, higher opacity. */
+  background: rgba(0, 122, 94, 0.28);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-spin,
   .animate-pulse {
@@ -186,28 +271,32 @@ input,
   color: var(--text-primary);
 }
 
-/* Custom scrollbars matching the dark surface palette */
+/* Custom scrollbars matching the surface palette */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0F1115;
+  background: var(--bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--surface-4);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--text-subtle);
 }
 
 input[type="date"] {
   color-scheme: dark;
   position: relative;
+}
+
+:root[data-theme="light"] input[type="date"] {
+  color-scheme: light;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
@@ -242,6 +331,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
 }
 
+:root[data-theme="light"] .dashboard-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, #F5F6F8 34rem),
+    radial-gradient(circle at 12% 10%, rgba(0, 122, 94, 0.05), transparent 24rem);
+}
+
+:root[data-theme="light"] .executive-panel {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 250, 0.96));
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  box-shadow: 0 22px 70px rgba(15, 23, 42, 0.10);
+}
+
+:root[data-theme="light"] .metric-card {
+  background: linear-gradient(180deg, #FFFFFF, #FBFCFD);
+  border-color: rgba(15, 23, 42, 0.22);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+}
+
 .dashboard-shell .table-scroll-region {
   scrollbar-color: var(--surface-4) transparent;
   scrollbar-width: thin;
@@ -258,8 +365,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transform: translateY(-1px);
 }
 
+:root[data-theme="light"] .metric-card:hover {
+  border-color: rgba(0, 122, 94, 0.4);
+}
+
 .metric-card:focus-visible {
   border-color: var(--brand-management);
+}
+
+:root[data-theme="light"] .metric-card:focus-visible {
+  border-color: var(--selection-ink);
 }
 
 .dashboard-shell button:disabled {
@@ -308,7 +423,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .metric-card--compact [data-metric-value] {
-  font-size: clamp(1.7rem, 2vw, 2.15rem);
+  /* Lower ceiling than the hero clamp: six cards share a row here, and the
+     wider clamp let long currency values (e.g. "R$ 3.124,17") overflow the
+     card or force an ugly mid-number line break. */
+  font-size: clamp(1.1rem, 1.5vw, 1.75rem);
 }
 
 .metric-card--compact [data-metric-subtext] {

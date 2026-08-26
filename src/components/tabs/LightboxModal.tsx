@@ -30,10 +30,10 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     >
       {activeLightboxImage && (
         <>
-          <div className="p-4 bg-white/[0.045] border-b border-[var(--border-hairline)] flex items-center justify-between">
+          <div className="p-4 bg-[var(--hover-wash)] border-b border-[var(--border-hairline)] flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0 pr-2">
-              <Image size={18} className="text-[var(--brand-strategy)] shrink-0" />
-              <h4 id="creative-preview-title" className="font-bold text-sm text-zinc-100 truncate">{activeLightboxImage.name}</h4>
+              <Image size={18} className="text-[var(--brand-strategy-ink)] shrink-0" />
+              <h4 id="creative-preview-title" className="font-bold text-sm text-[var(--text-primary)] truncate">{activeLightboxImage.name}</h4>
             </div>
             <Button variant="icon" size="icon" className="w-9 h-9 min-h-9 min-w-9" onClick={() => setActiveLightboxImage(null)} aria-label="Fechar prévia do criativo">
               <X size={16} />
@@ -62,20 +62,20 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             {activeLightboxImage.stats && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full bg-[var(--surface-3)] p-3 rounded-[var(--radius-control)] border border-[var(--border-hairline)] text-center text-xs font-mono">
                 <div>
-                  <span className="text-[10px] text-zinc-400 font-bold uppercase block">Gasto</span>
-                  <span className="font-bold text-zinc-200 tabular-nums">{formatCurrency(activeLightboxImage.stats.investimento)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block">Gasto</span>
+                  <span className="font-bold text-[var(--text-primary)] tabular-nums">{formatCurrency(activeLightboxImage.stats.investimento)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-400 font-bold uppercase block">Vendas</span>
-                  <span className="font-bold text-[var(--brand-strategy)] tabular-nums">{activeLightboxImage.stats.vendas}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block">Vendas</span>
+                  <span className="font-bold text-[var(--brand-strategy-ink)] tabular-nums">{activeLightboxImage.stats.vendas}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-400 font-bold uppercase block">CPA</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block">CPA</span>
                   <span className="font-bold text-rose-400 tabular-nums">{formatCurrency(activeLightboxImage.stats.cpa)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-400 font-bold uppercase block">ROAS</span>
-                  <span className="font-bold text-[var(--brand-strategy)] tabular-nums">{(activeLightboxImage.stats.roas || 0).toFixed(2)}x</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block">ROAS</span>
+                  <span className="font-bold text-[var(--brand-strategy-ink)] tabular-nums">{(activeLightboxImage.stats.roas || 0).toFixed(2)}x</span>
                 </div>
               </div>
             )}

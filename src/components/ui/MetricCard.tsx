@@ -6,7 +6,7 @@ export interface MetricCardProps {
   id?: string;
   title: string;
   value: string | number;
-  subtext: string;
+  subtext?: string;
   icon: React.ReactNode;
   valueColor?: string;
   className?: string;
@@ -23,11 +23,14 @@ export interface MetricCardProps {
   } | null;
   comparisonLabel?: string;
   onClick?: () => void;
+  /** Per-funnel values shown as a colored-dot legend when 2-3 funnels are
+   * selected; the big `value` above stays the combined total either way. */
+  breakdown?: { name: string; color: string; value: string }[];
 }
 
 export function MetricCard({
   title, value, subtext, icon, valueColor, className, selected, isHero, heroTag,
-  comparison, comparisonLabel, onClick,
+  comparison, comparisonLabel, onClick, breakdown,
 }: MetricCardProps) {
   return (
     <button
@@ -36,8 +39,11 @@ export function MetricCard({
       aria-pressed={selected}
       aria-label={`${title}: ${value}. ${selected ? 'Remover do gráfico' : 'Adicionar ao gráfico'}`}
       className={cn(
-        'metric-card appearance-none rounded-[var(--radius-panel)] border p-4 flex flex-col justify-between transition-all duration-[var(--motion-base)] relative overflow-hidden text-left w-full',
-        isHero ? 'ring-1 ring-[var(--brand-strategy)]/15 hover:border-[var(--brand-strategy)]/50' : 'hover:border-slate-500/40',
+        'metric-card appearance-none rounded-[var(--radius-panel)] border p-4 flex flex-col justify-between transition-all duration-[var(--motion-base)] relative text-left w-full',
+        // overflow-hidden only clips the isHero corner ribbon — applying it
+        // unconditionally was clipping the value/comparison text in compact
+        // cards whenever a long currency amount needed to wrap to 2 lines.
+        isHero ? 'overflow-hidden ring-1 ring-[var(--brand-strategy)]/15 hover:border-[var(--brand-strategy)]/50' : 'hover:border-slate-500/40',
         onClick && 'cursor-pointer',
         selected && 'ring-2 ring-[var(--selection)]/70 border-[var(--selection)]/60 bg-[var(--surface-2)]',
         className
@@ -56,26 +62,39 @@ export function MetricCard({
             className={cn(
               'p-2 rounded-[var(--radius-control)] border flex items-center justify-center transition-colors',
               selected
-                ? 'bg-[var(--selection-subtle)] text-[var(--selection)] border-[var(--selection)]/30'
-                : 'bg-[var(--action-subtle)] text-[var(--brand-strategy)] border-[var(--brand-strategy)]/20'
+                ? 'bg-[var(--selection-subtle)] text-[var(--selection-ink)] border-[var(--selection-ink)]/30'
+                : 'bg-[var(--action-subtle)] text-[var(--brand-strategy-ink)] border-[var(--brand-strategy-ink)]/20'
             )}
           >
             {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, {
-              className: cn('shrink-0', selected ? 'text-[var(--selection)]' : 'text-[var(--brand-strategy)]'),
+              className: cn('shrink-0', selected ? 'text-[var(--selection-ink)]' : 'text-[var(--brand-strategy-ink)]'),
             }) : icon}
           </div>
-          <span data-metric-title className={cn('uppercase', isHero ? 'text-zinc-200' : 'text-zinc-400')}>{title}</span>
+          <span data-metric-title className={cn('uppercase', isHero ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]')}>{title}</span>
         </div>
         {selected && <div className="w-2.5 h-2.5 rounded-full bg-[var(--selection)] shadow-sm shadow-[var(--selection)]/40" />}
       </div>
 
       <div className="mb-1">
-        <h3 data-metric-value className={cn('tabular-nums mb-1 transition-colors', valueColor || 'text-white')}>{value}</h3>
-        <p data-metric-subtext className="text-zinc-400 font-normal">{subtext}</p>
+        <h3 data-metric-value className={cn('tabular-nums mb-1 transition-colors break-words', valueColor || 'text-[var(--text-primary)]')}>{value}</h3>
+        {subtext && <p data-metric-subtext className="text-[var(--text-muted)] font-normal">{subtext}</p>}
+        {breakdown && breakdown.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            {breakdown.map((item) => (
+              <span key={item.name} title={item.name} aria-label={`${item.name}: ${item.value}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] tabular-nums">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                {item.value}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {comparison && (
-        <div data-metric-comparison className="mt-3 pt-2.5 border-t border-[var(--border-hairline)] flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        // flex-wrap (not a fixed single row) lets the badge/label/chip drop to
+        // a second line as whole units on narrow compact cards, instead of
+        // being squeezed until the label collapses to zero width or overflows.
+        <div data-metric-comparison className="mt-3 pt-2.5 border-t border-[var(--border-hairline)] flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <div className={cn(
             'inline-flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-chip)] font-bold text-xs tracking-wide shrink-0 border',
             comparison.isGood
@@ -87,18 +106,18 @@ export function MetricCard({
             ) : comparison.percent < 0 ? (
               <TrendingDown size={11} />
             ) : (
-              <Equal size={11} className="text-zinc-400" />
+              <Equal size={11} className="text-[var(--text-muted)]" />
             )}
             <span>{comparison.formatted}</span>
           </div>
 
           <div
-            className="text-xs text-zinc-400 font-medium flex w-full min-w-0 items-center gap-1 sm:w-auto sm:justify-end"
+            className="text-xs text-[var(--text-muted)] font-medium flex items-center gap-1"
             title={comparison.prevFormatted ? `Valor no período anterior: ${comparison.prevFormatted}` : undefined}
           >
-            <span className="truncate text-left sm:text-right">{comparisonLabel || 'vs. anterior'}</span>
+            <span className="whitespace-nowrap">{comparisonLabel || 'vs. anterior'}</span>
             {comparison.prevFormatted && (
-              <span className="text-zinc-200 font-bold bg-[var(--surface-3)] px-1.5 py-0.5 rounded-[4px] border border-[var(--border-hairline)] shrink-0 text-xs font-mono tabular-nums">
+              <span className="text-[var(--text-primary)] font-bold bg-[var(--surface-3)] px-1.5 py-0.5 rounded-[4px] border border-[var(--border-hairline)] shrink-0 text-xs font-mono tabular-nums">
                 ({comparison.prevFormatted})
               </span>
             )}

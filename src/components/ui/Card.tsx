@@ -18,7 +18,7 @@ export function Card({ elevation = 2, padded = true, className, children, ...pro
   return (
     <div
       className={cn(
-        'rounded-[var(--radius-panel)] border border-white/10 bg-[var(--panel)]',
+        'rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)]',
         ELEVATION_CLASSES[elevation],
         padded && 'p-5 sm:p-6',
         className

@@ -12,7 +12,7 @@ export function SectionHeader({ title, subtitle, action, className }: SectionHea
   return (
     <div className={cn('flex flex-wrap items-center justify-between gap-3', className)}>
       <div>
-        <h3 className="text-[length:var(--type-section)] font-bold text-white">{title}</h3>
+        <h3 className="text-[length:var(--type-section)] font-bold text-[var(--text-primary)]">{title}</h3>
         {subtitle && <p className="mt-1 text-sm font-medium text-[var(--text-subtle)]">{subtitle}</p>}
       </div>
       {action}

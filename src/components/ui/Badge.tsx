@@ -9,9 +9,9 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  neutral: 'bg-white/[0.045] border-white/10 text-zinc-200',
-  brand: 'bg-[var(--action-subtle)] border-[var(--brand-strategy)]/25 text-[var(--brand-strategy)]',
-  selection: 'bg-[var(--selection-subtle)] border-[var(--selection)]/30 text-[var(--selection)]',
+  neutral: 'bg-[var(--hover-wash)] border-[var(--border-hairline)] text-[var(--text-primary)]',
+  brand: 'bg-[var(--action-subtle)] border-[var(--brand-strategy)]/25 text-[var(--brand-strategy-ink)]',
+  selection: 'bg-[var(--selection-subtle)] border-[var(--selection)]/30 text-[var(--selection-ink)]',
   positive: 'bg-[var(--status-positive)]/10 border-[var(--status-positive)]/25 text-[var(--status-positive)]',
   negative: 'bg-[var(--status-negative)]/10 border-[var(--status-negative)]/25 text-[var(--status-negative)]',
 };
@@ -36,7 +36,7 @@ export function RankBadge({ rank, className }: { rank: number; className?: strin
   return (
     <span
       className={cn(
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] font-mono text-sm font-bold text-zinc-200',
+        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-hairline)] bg-[var(--hover-wash)] font-mono text-sm font-bold text-[var(--text-primary)]',
         className
       )}
     >

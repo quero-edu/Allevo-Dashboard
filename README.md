@@ -44,6 +44,21 @@ docker run -d \
 
 O Dockerfile gera a versao de producao durante o build e inicia apenas os arquivos compilados. Depois de um `git pull`, recrie a imagem e o container para publicar a nova versao.
 
+## Deploy na Quero (EKS + base-app)
+
+A infra vive em [`.infra/`](.infra/README.md), seguindo o
+[`app-blueprint`](https://github.com/quero-edu/app-blueprint) (caminho EKS) com o chart
+[`base-app`](https://github.com/quero-edu/helm-charts/tree/master/charts/base-app).
+
+- Ambiente unico `prod`, no cluster `prod-nv-cluster`, namespace `shared`.
+- Terragrunt (ECR, service account, secrets, CodeBuild) aplicado via Atlantis em PR.
+- Push na `main` dispara o CodeBuild, que builda `--target=prod` e roda `helm upgrade`.
+- Variaveis sensiveis ficam no AWS Secrets Manager (`allevo-dashboard-prod`), nao no repo.
+- Host: `allevo-dashboard.quero.space`.
+
+As pendencias antes do primeiro apply (host, secrets, canal do Slack) estao
+listadas em [`.infra/README.md`](.infra/README.md).
+
 ## Deploy no EasyPanel
 
 Use este repositorio como origem Git, selecione deploy por Dockerfile e configure:

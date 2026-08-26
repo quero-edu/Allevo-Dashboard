@@ -1,0 +1,57 @@
+version: 0.2
+
+env:
+  variables:
+    ENVIRONMENT: prod # precisa bater com o enum do chart (homolog | prod) e com o nome da pasta em .infra/helm
+    DOCKERFILE_PATH: ./Dockerfile
+
+phases:
+  install:
+    commands:
+      # install helm
+      - curl -o helm.tar.gz https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz
+      - tar -zxvf helm.tar.gz linux-amd64/helm
+      - chmod +x linux-amd64/helm
+      - mv linux-amd64/helm /usr/local/bin/helm
+  pre_build:
+    on-failure: ABORT
+    commands:
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URL
+      - docker login --username $DOCKER_HUB_USER --password $DOCKER_HUB_PASSWORD
+  build:
+    on-failure: ABORT
+    commands:
+      - export IMG_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 5)
+      - export IMG_TAG_LATEST="latest"
+      - docker pull $REPOSITORY_URL:$IMG_TAG_LATEST || true
+      - docker build --cache-from $REPOSITORY_URL:$IMG_TAG_LATEST --target=prod -f $DOCKERFILE_PATH -t $PROJECT_NAME:$IMG_TAG --build-arg APP_VERSION=${IMG_TAG} $(echo $PROJECT_SECRETS | jq -r 'keys[] as $k | " --build-arg \($k)=\(.[$k])"' | tr -d '\n') .
+      - docker tag "$PROJECT_NAME:$IMG_TAG" "$REPOSITORY_URL:$IMG_TAG"
+      - docker tag "$PROJECT_NAME:$IMG_TAG" "$REPOSITORY_URL:$IMG_TAG_LATEST"
+      - docker push "$REPOSITORY_URL:$IMG_TAG"
+      - docker push "$REPOSITORY_URL:$IMG_TAG_LATEST"
+  post_build:
+    on-failure: ABORT
+    commands:
+      # Export and encode project secrets
+      - export SECRETS_B64=$(echo $PROJECT_SECRETS | jq -r 'keys[] as $k | "\($k)':' \(.[$k] | @base64)"' | base64 | tr -d "\n")
+      # Helm upgrade
+      - aws eks update-kubeconfig --name=$EKS_CLUSTER_NAME
+      - helm repo add quero-edu https://$QBDEVOPS_CHARTMUSEUM_USER:$QBDEVOPS_CHARTMUSEUM_PASS@helm-charts.quero.space
+      - helm repo update
+      - |
+        helm upgrade $PROJECT_NAME quero-edu/base-app --install -n $POD_SERVICE_ACCOUNT_NAMESPACE --atomic --debug \
+          --version "2.4.0" \
+          -f $INFRA_DIRECTORY/helm/base-app.values.yaml \
+          -f $INFRA_DIRECTORY/helm/$ENVIRONMENT/base-app.values.yaml \
+          --timeout 10m \
+          --set app.canaryRelease.enabled=false \
+          --set app.canaryRelease.slackApiUrl=$DEPLOY_SLACK_API_URL \
+          --set image.repository=$REPOSITORY_URL \
+          --set image.tag=$IMG_TAG \
+          --set global.clusterName=$EKS_CLUSTER_NAME \
+          --set global.appName=$PROJECT_NAME \
+          --set global.project.name=$PROJECT_NAME \
+          --set global.project.environment=$ENVIRONMENT \
+          --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=$POD_SERVICE_ACCOUNT_ROLE_ARN \
+          --set serviceAccount.name="$POD_SERVICE_ACCOUNT_NAME" \
+          --set secret.data="$SECRETS_B64"

@@ -44,3 +44,17 @@ Dashboard-Prompt-Blueprint.md
 dashboard-architecture.md
 bun.lock
 data/
+
+# Terraform / Terragrunt (.infra)
+**/.terraform/*
+**/.terraform.lock.hcl
+**/.terragrunt-cache/*
+**/*.g.tf
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+**/terragrunt-debug.tfvars.json

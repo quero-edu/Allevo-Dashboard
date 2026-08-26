@@ -1,0 +1,7 @@
+# Valores específicos de prod. Aplicados por cima de .infra/helm/base-app.values.yaml.
+ingresses:
+  - enabled: true
+    host: "allevo-dashboard.quero.space"
+    isPublic: true # acessado de fora da VPN pelos times da AllevoTech/Rede Alumni
+    shouldEnableProxy: true
+    shouldCreateDNSEndpoint: true

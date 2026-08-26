@@ -8,8 +8,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..700&display=swap" rel="stylesheet">
+    <script>
+      // Runs before first paint so the saved theme is already on <html>
+      // when index.css and Dashboard.tsx's own useState read it — otherwise
+      // a returning light-mode user would see one dark frame flash first.
+      (function () {
+        try {
+          if (localStorage.getItem('allevo-theme') === 'light') {
+            document.documentElement.dataset.theme = 'light';
+          }
+        } catch (e) { /* private mode etc — falls back to dark, matches index.css default */ }
+      })();
+    </script>
   </head>
-  <body class="bg-[#121212] text-[#FAFAFA] font-sans antialiased selection:bg-[#00FFBB]/30 selection:text-[#00FFBB]">
+  <body class="bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased selection:bg-[var(--brand-strategy)]/30 selection:text-[var(--brand-strategy-ink)]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

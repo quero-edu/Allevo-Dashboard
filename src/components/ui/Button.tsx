@@ -13,10 +13,10 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: 'bg-gradient-to-br from-[var(--allevo-action-start)] to-[var(--allevo-action-end)] text-[var(--allevo-text-on-action)] font-bold shadow-[0_10px_24px_-8px_var(--brand-strategy)] hover:brightness-105 active:scale-[0.98]',
-  secondary: 'bg-white/[0.045] hover:bg-white/[0.075] border border-white/10 hover:border-white/20 text-zinc-200 font-semibold',
-  ghost: 'text-[var(--text-subtle)] hover:text-white hover:bg-white/[0.06] font-semibold',
-  danger: 'bg-rose-500 hover:bg-rose-400 text-white font-bold',
-  icon: 'text-[var(--text-subtle)] hover:text-[var(--brand-strategy)] hover:bg-white/[0.06]',
+  secondary: 'bg-[var(--hover-wash)] hover:bg-[var(--hover-wash-strong)] border border-[var(--border-hairline)] hover:border-[var(--border-strong)] text-[var(--text-primary)] font-semibold',
+  ghost: 'text-[var(--text-subtle)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-wash-strong)] font-semibold',
+  danger: 'bg-rose-500 hover:bg-rose-400 text-[var(--text-primary)] font-bold',
+  icon: 'text-[var(--text-subtle)] hover:text-[var(--brand-strategy-ink)] hover:bg-[var(--hover-wash-strong)]',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

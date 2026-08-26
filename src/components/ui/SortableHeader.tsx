@@ -35,7 +35,7 @@ export function SortableHeader({
         aria-label={`${typeof children === 'string' ? children : 'Coluna'}: ordenar ${isActive && direction === 'asc' ? 'decrescente' : 'crescente'}`}
       >
         <span>{children}</span>
-        <Icon size={13} aria-hidden="true" className={cn('shrink-0', isActive ? 'text-[var(--brand-strategy)]' : 'text-[var(--text-subtle)]')} />
+        <Icon size={13} aria-hidden="true" className={cn('shrink-0', isActive ? 'text-[var(--brand-strategy-ink)]' : 'text-[var(--text-subtle)]')} />
       </button>
     </th>
   );

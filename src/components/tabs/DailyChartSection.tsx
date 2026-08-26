@@ -35,15 +35,20 @@ function mixHex(hex: string, target: string, amount: number) {
   return `#${[mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
-// Main products: lighter tints of the family hue, base color first.
-function familyPalette(baseHex: string, count: number) {
-  return Array.from({ length: count }, (_, i) => mixHex(baseHex, '#ffffff', i * 0.22));
+// Main products: tints of the family hue stepped toward the page's own
+// surface color, base color first — lighter steps on a dark surface,
+// darker steps on a light one, so the ramp still reads as "tints of the
+// same hue" rather than one theme's direction looking washed out.
+function familyPalette(baseHex: string, count: number, theme: 'dark' | 'light') {
+  const target = theme === 'light' ? '#111318' : '#ffffff';
+  return Array.from({ length: count }, (_, i) => mixHex(baseHex, target, i * 0.22));
 }
 
-// Order Bumps: darker/muted tints of the same family hue — a related but
-// visually receded variant, not a competing identity.
-function familyOrderBumpPalette(baseHex: string, count: number) {
-  return Array.from({ length: count }, (_, i) => mixHex(baseHex, '#0F1115', 0.35 + i * 0.15));
+// Order Bumps: shifted toward the opposite pole of the family tint above —
+// a related but visually receded variant, not a competing identity.
+function familyOrderBumpPalette(baseHex: string, count: number, theme: 'dark' | 'light') {
+  const target = theme === 'light' ? '#ffffff' : '#0F1115';
+  return Array.from({ length: count }, (_, i) => mixHex(baseHex, target, 0.35 + i * 0.15));
 }
 
 interface DailyChartSectionProps {
@@ -59,6 +64,7 @@ interface DailyChartSectionProps {
   funnelColors: Record<string, string>;
   formatCurrency: (val: number) => string;
   formatNumber: (val: number) => string;
+  theme: 'dark' | 'light';
 }
 
 export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
@@ -70,8 +76,23 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
   METRIC_CONFIG,
   funnelColors,
   formatCurrency,
-  formatNumber
+  formatNumber,
+  theme
 }) => {
+  // Recharts renders these as raw SVG attributes/inline styles, so a plain
+  // CSS var() string resolves at paint time exactly like a stylesheet rule —
+  // no need to thread computed hex values through JS for every tick/line.
+  const chartTick = 'var(--chart-tick)';
+  const chartGrid = 'var(--chart-grid)';
+  const tooltipStyle = {
+    backgroundColor: 'var(--surface-1)',
+    borderColor: 'var(--border-hairline)',
+    borderRadius: '8px',
+    color: 'var(--text-primary)',
+    fontWeight: 'bold' as const,
+    fontFamily: 'monospace',
+    fontSize: '12px',
+  };
   const hasCurrencyMetric = selectedMetrics.some((key) => METRIC_CONFIG[key]?.type === 'currency');
   const hasQuantityMetric = selectedMetrics.some((key) => key !== 'roas' && METRIC_CONFIG[key]?.type !== 'currency');
   // ROAS gets its own right-side axis: sharing "number" with count metrics
@@ -126,7 +147,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
     const { funnel, isOrderBump } = getSeriesMeta(series);
     const baseHue = funnelColors[funnel] || UNKNOWN_FUNNEL_HUE;
     const siblings = (isOrderBump ? orderBumpProducts : mainProducts).filter(([name]) => getSeriesMeta(name).funnel === funnel);
-    const palette = isOrderBump ? familyOrderBumpPalette(baseHue, siblings.length) : familyPalette(baseHue, siblings.length);
+    const palette = isOrderBump ? familyOrderBumpPalette(baseHue, siblings.length, theme) : familyPalette(baseHue, siblings.length, theme);
     const index = siblings.findIndex(([name]) => name === series);
     return palette[Math.max(index, 0) % palette.length];
   };
@@ -144,18 +165,18 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
       <div className="flex flex-col gap-4 mb-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-[length:var(--type-section)] font-bold text-white">Histórico diário</h3>
-            <p className="mt-1 text-sm text-zinc-400 font-medium">Selecione até cinco métricas para comparar.</p>
+            <h3 className="text-[length:var(--type-section)] font-bold text-[var(--text-primary)]">Histórico diário</h3>
+            <p className="mt-1 text-sm text-[var(--text-muted)] font-medium">Selecione até cinco métricas para comparar.</p>
           </div>
           <button
             onClick={() => setSelectedMetrics([])}
-            className="min-h-11 self-start sm:self-auto text-xs font-bold px-3 py-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.04] rounded-[var(--radius-control)] transition-colors border border-[var(--border-hairline)] cursor-pointer"
+            className="min-h-11 self-start sm:self-auto text-xs font-bold px-3 py-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-wash)] rounded-[var(--radius-control)] transition-colors border border-[var(--border-hairline)] cursor-pointer"
           >
             Limpar seleção
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-hairline)] pt-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 mr-1">Análise</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-subtle)] mr-1">Análise</span>
           <button
             type="button"
             onClick={() => setShowMovingAverage(prev => !prev)}
@@ -163,20 +184,20 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
             className={cn(
               "min-h-11 flex items-center gap-2 cursor-pointer select-none text-xs font-bold px-3 py-2 rounded-[var(--radius-control)] border transition-colors",
               showMovingAverage
-                ? "bg-[var(--selection-subtle)] border-[var(--selection)]/50 text-[var(--selection)]"
-                : "bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+                ? "bg-[var(--selection-subtle)] border-[var(--selection-ink)]/50 text-[var(--selection-ink)]"
+                : "bg-[var(--hover-wash)] border-[var(--border-hairline)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"
             )}
           >
             <div className={cn(
               "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-all shrink-0",
               showMovingAverage
                 ? "bg-[var(--selection)] border-[var(--selection)] shadow-sm shadow-[var(--selection)]/30"
-                : "bg-[#1C1C1C] border-[#383838]"
+                : "bg-[var(--overlay-bg)] border-[var(--overlay-border)]"
             )}>
-              {showMovingAverage && <Check size={10} className="text-white" strokeWidth={3} />}
+              {showMovingAverage && <Check size={10} className="text-[var(--text-primary)]" strokeWidth={3} />}
             </div>
             <span className="flex items-center gap-1.5">
-              <Activity size={13} className="text-[var(--selection)]" /> Média Móvel (7D)
+              <Activity size={13} className="text-[var(--selection-ink)]" /> Média Móvel (7D)
             </span>
           </button>
         </div>
@@ -185,14 +206,14 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
       <div className="h-[320px] sm:h-[380px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={dailyMetrics}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
-            <XAxis dataKey="date" tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#262626' }} dy={10} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGrid} />
+            <XAxis dataKey="date" tick={{ fill: chartTick, fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: chartGrid }} dy={10} />
             
             {hasCurrencyMetric && (
               <YAxis 
                 yAxisId="currency"
                 orientation="left"
-                tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }}
+                tick={{ fill: chartTick, fontSize: 12, fontFamily: 'monospace' }}
                 tickLine={false} 
                 axisLine={false} 
                 tickFormatter={(val) => `R$ ${val}`}
@@ -202,7 +223,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
               <YAxis
                 yAxisId="number"
                 orientation="right"
-                tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }}
+                tick={{ fill: chartTick, fontSize: 12, fontFamily: 'monospace' }}
                 tickLine={false}
                 axisLine={false}
               />
@@ -211,7 +232,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
               <YAxis
                 yAxisId="roas"
                 orientation="right"
-                tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }}
+                tick={{ fill: chartTick, fontSize: 12, fontFamily: 'monospace' }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(val) => `${val}x`}
@@ -235,15 +256,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                 }
                 return [formattedVal, name];
               }}
-              contentStyle={{ 
-                backgroundColor: '#151922', 
-                borderColor: 'rgba(148, 163, 184, 0.18)', 
-                borderRadius: '8px', 
-                color: '#EDEDED', 
-                fontWeight: 'bold',
-                fontFamily: 'monospace',
-                fontSize: '12px'
-              }}
+              contentStyle={tooltipStyle}
             />
             <Legend wrapperStyle={{ paddingTop: '20px', fontFamily: 'monospace', fontSize: '12px' }} iconType="circle" />
             
@@ -272,7 +285,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                       stroke={config.color}
                       strokeWidth={2.5}
                       strokeDasharray={LINE_DASH_PATTERNS[lineIndex++ % LINE_DASH_PATTERNS.length]}
-                      dot={{ r: 3.5, strokeWidth: 1.5, fill: '#121212' }}
+                      dot={{ r: 3.5, strokeWidth: 1.5, fill: 'var(--bg)' }}
                       activeDot={{ r: 5 }}
                       yAxisId={yAxisId}
                     />
@@ -303,15 +316,15 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
       {products.length > 0 && (
         <section className="mt-8 border-t border-[var(--border-hairline)] pt-6">
           <div className="mb-4">
-            <h3 className="text-[length:var(--type-section)] font-bold text-white">Vendas por produto e Order Bump</h3>
-            <p className="mt-1 text-sm text-zinc-400 font-medium">Produto principal e Order Bump vendidos por dia no período selecionado.</p>
+            <h3 className="text-[length:var(--type-section)] font-bold text-[var(--text-primary)]">Vendas por produto e Order Bump</h3>
+            <p className="mt-1 text-sm text-[var(--text-muted)] font-medium">Produto principal e Order Bump vendidos por dia no período selecionado.</p>
           </div>
           <div className="h-[260px] sm:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={productChartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
-                <XAxis dataKey="date" tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#262626' }} dy={10} />
-                <YAxis allowDecimals={false} tick={{ fill: '#A3A3A3', fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGrid} />
+                <XAxis dataKey="date" tick={{ fill: chartTick, fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: chartGrid }} dy={10} />
+                <YAxis allowDecimals={false} tick={{ fill: chartTick, fontSize: 12, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
                 <Tooltip
                   formatter={(value: number, name: string) => {
                     const isMM = typeof name === 'string' && name.startsWith('MM 7D · ');
@@ -319,7 +332,7 @@ export const DailyChartSection: React.FC<DailyChartSectionProps> = ({
                     const label = isMM ? `MM 7D · ${fullSeriesLabel(rawKey)}` : fullSeriesLabel(rawKey);
                     return [formatNumber(value), label];
                   }}
-                  contentStyle={{ backgroundColor: '#151922', borderColor: 'rgba(148, 163, 184, 0.18)', borderRadius: '8px', color: '#EDEDED', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '12px' }}
+                  contentStyle={tooltipStyle}
                 />
                 <Legend
                   wrapperStyle={{ paddingTop: '16px', fontFamily: 'monospace', fontSize: '11px', lineHeight: '18px' }}

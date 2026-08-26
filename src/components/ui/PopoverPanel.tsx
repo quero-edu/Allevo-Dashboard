@@ -14,7 +14,7 @@ export function PopoverPanel({ open, align = 'left', width = 'w-72', role = 'men
     <div
       role={role}
       className={cn(
-        'absolute top-full z-50 mt-2 rounded-[var(--radius-panel)] border border-white/10 bg-[var(--panel)] p-2 shadow-[var(--elevation-2)] animate-in fade-in slide-in-from-top-2 duration-150',
+        'absolute top-full z-50 mt-2 rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-2 shadow-[var(--elevation-2)] animate-in fade-in slide-in-from-top-2 duration-150',
         align === 'right' ? 'right-0' : align === 'full' ? 'left-0 right-0' : 'left-0',
         width,
         className

@@ -41,14 +41,14 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
           title="Performance dos criativos"
           action={
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={15} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]" size={15} />
               <input
                 type="text"
                 aria-label="Filtrar criativos"
                 placeholder="Filtrar criativo..."
                 value={creativeFilter}
                 onChange={e => setCreativeFilter(e.target.value)}
-                className="pl-9 pr-4 py-2 bg-[var(--surface-3)] border border-[var(--border-hairline)] rounded-[var(--radius-control)] text-base sm:text-xs text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-[#00FFBB]/30 focus:border-[#00FFBB] transition-all w-full sm:w-64 shadow-inner"
+                className="pl-9 pr-4 py-2 bg-[var(--surface-3)] border border-[var(--border-hairline)] rounded-[var(--radius-control)] text-base sm:text-xs text-[var(--text-primary)] placeholder:text-[var(--text-subtle)] focus:ring-2 focus:ring-[var(--brand-strategy-ink)]/30 focus:border-[var(--brand-strategy-ink)] transition-all w-full sm:w-64 shadow-inner"
               />
             </div>
           }
@@ -71,12 +71,12 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
               <SortableHeader column="conv" activeColumn={creativeSort.column} direction={creativeSort.direction} onSort={toggleCreativeSort} align="right">Conv.</SortableHeader>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--border-hairline)] text-zinc-300 font-mono text-xs">
+          <tbody className="divide-y divide-[var(--border-hairline)] text-[var(--text-muted)] font-mono text-xs">
             {visibleCreatives.map((c: any) => {
                 const rawThumb = c.Thumb_Criativo || c.thumb || c.thumbnail || c.image;
                 const thumbUrl = getCreativeThumbnail(c.name, rawThumb);
                 return (
-                  <tr key={c.name} className="hover:bg-white/[0.045] transition-colors">
+                  <tr key={c.name} className="hover:bg-[var(--hover-wash)] transition-colors">
                     <td className="px-3 py-3 text-center">
                       <button 
                         disabled={!thumbUrl}
@@ -84,7 +84,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                         className="relative group/thumb block mx-auto cursor-pointer disabled:cursor-default"
                         title={thumbUrl ? "Clique para ampliar prévia do criativo" : "Prévia indisponível para este criativo"}
                       >
-                        <div className="w-12 h-9 rounded-[6px] bg-[var(--surface-3)] overflow-hidden border border-[var(--border-hairline)] group-hover/thumb:border-[#00FFBB] transition-all shadow-sm flex items-center justify-center relative">
+                        <div className="w-12 h-9 rounded-[6px] bg-[var(--surface-3)] overflow-hidden border border-[var(--border-hairline)] group-hover/thumb:border-[var(--brand-strategy-ink)] transition-all shadow-sm flex items-center justify-center relative">
                           {thumbUrl ? <img
                             src={thumbUrl} 
                             alt={c.name}
@@ -98,14 +98,14 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                                 target.src = `/api/proxy-image?url=${encodeURIComponent(rawThumb)}`;
                               }
                             }}
-                          /> : <ImageOff size={15} className="text-zinc-500" aria-label="Prévia indisponível" />}
+                          /> : <ImageOff size={15} className="text-[var(--text-subtle)]" aria-label="Prévia indisponível" />}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
-                            <Maximize2 size={12} className="text-[#00FFBB]" />
+                            <Maximize2 size={12} className="text-[var(--brand-strategy-ink)]" />
                           </div>
                         </div>
                       </button>
                     </td>
-                    <td className="px-4 py-3.5 font-sans font-bold text-zinc-100 max-w-[200px] xl:max-w-[300px]">
+                    <td className="px-4 py-3.5 font-sans font-bold text-[var(--text-primary)] max-w-[200px] xl:max-w-[300px]">
                       <span className="truncate block" title={c.name}>{c.name}</span>
                     </td>
                     <td className="px-4 py-3.5 text-center">
@@ -114,23 +114,23 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                           href={c.link} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#00FFBB]/10 text-[#00FFBB] border border-[#00FFBB]/20 font-bold text-[10px] hover:bg-[#00FFBB]/20 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[var(--brand-strategy)]/10 text-[var(--brand-strategy-ink)] border border-[var(--brand-strategy-ink)]/20 font-bold text-[10px] hover:bg-[var(--brand-strategy)]/20 transition-colors"
                         >
                           <ExternalLink size={11} />
                           Ver Ad
                         </a>
                       ) : (
-                        <span className="text-xs text-zinc-500 font-medium">-</span>
+                        <span className="text-xs text-[var(--text-subtle)] font-medium">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-medium text-zinc-200">{formatCurrency(c.investimento)}</td>
-                    <td className="px-4 py-3.5 text-right font-medium text-zinc-300">{formatNumber(c.impressoes)}</td>
-                    <td className="px-4 py-3.5 text-right font-medium text-zinc-300">{formatNumber(c.cliques)}</td>
-                    <td className="px-4 py-3.5 text-right font-medium text-zinc-300">{formatPercent(c.ctr)}</td>
-                    <td className="px-4 py-3.5 text-center font-bold text-[#00FFBB]">{c.vendas}</td>
+                    <td className="px-4 py-3.5 text-right font-medium text-[var(--text-primary)]">{formatCurrency(c.investimento)}</td>
+                    <td className="px-4 py-3.5 text-right font-medium text-[var(--text-muted)]">{formatNumber(c.impressoes)}</td>
+                    <td className="px-4 py-3.5 text-right font-medium text-[var(--text-muted)]">{formatNumber(c.cliques)}</td>
+                    <td className="px-4 py-3.5 text-right font-medium text-[var(--text-muted)]">{formatPercent(c.ctr)}</td>
+                    <td className="px-4 py-3.5 text-center font-bold text-[var(--brand-strategy-ink)]">{c.vendas}</td>
                     <td className="px-4 py-3.5 text-right font-bold text-rose-400">{formatCurrency(c.cpa)}</td>
-                    <td className="px-4 py-3.5 text-right font-bold text-[#00FFBB]">{(c.roas || 0).toFixed(2)}x</td>
-                    <td className="px-4 py-3.5 text-right font-bold text-[#00FFBB]">{formatPercent(c.conv)}</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-[var(--brand-strategy-ink)]">{(c.roas || 0).toFixed(2)}x</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-[var(--brand-strategy-ink)]">{formatPercent(c.conv)}</td>
                   </tr>
                 );
             })}

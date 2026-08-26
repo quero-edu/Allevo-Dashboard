@@ -67,7 +67,7 @@ export function Dialog({
   if (!open) return null;
 
   const panelClassName = cn(
-    'w-full max-w-md rounded-[var(--radius-panel)] border border-white/10 bg-[var(--panel)] p-6 shadow-[var(--elevation-3)] animate-in zoom-in-95 duration-200',
+    'w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-6 shadow-[var(--elevation-3)] animate-in zoom-in-95 duration-200',
     className
   );
   const panelProps = {

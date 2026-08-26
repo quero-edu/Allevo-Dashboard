@@ -95,25 +95,25 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-[#A855F7]">
+        <div className="flex items-center gap-2 text-[var(--accent-purple-ink)]">
           <Package size={20} strokeWidth={2.5} />
           <h2 className="font-mono text-sm font-bold uppercase tracking-[0.08em]">Produtos do lançamento</h2>
         </div>
-        <p className="text-sm text-zinc-400">Vendas registradas na aba de produto principal. Não entram nos indicadores de ingresso.</p>
+        <p className="text-sm text-[var(--text-muted)]">Vendas registradas na aba de produto principal. Não entram nos indicadores de ingresso.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
-          <div className="flex items-center gap-2 text-zinc-400 text-xs font-mono font-bold uppercase tracking-wider"><ShoppingBag size={15} className="text-[#A855F7]" /> Vendas de produto</div>
-          <p className="mt-4 text-3xl font-mono font-bold text-zinc-100">{formatNumber(totalSales)}</p>
+          <div className="flex items-center gap-2 text-[var(--text-muted)] text-xs font-mono font-bold uppercase tracking-wider"><ShoppingBag size={15} className="text-[var(--accent-purple-ink)]" /> Vendas de produto</div>
+          <p className="mt-4 text-3xl font-mono font-bold text-[var(--text-primary)]">{formatNumber(totalSales)}</p>
         </div>
         <div className="rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
-          <div className="flex items-center gap-2 text-zinc-400 text-xs font-mono font-bold uppercase tracking-wider"><TrendingUp size={15} className="text-[#A855F7]" /> Faturamento produto</div>
-          <p className="mt-4 text-3xl font-mono font-bold text-[#A855F7]">{formatCurrency(totalRevenue)}</p>
+          <div className="flex items-center gap-2 text-[var(--text-muted)] text-xs font-mono font-bold uppercase tracking-wider"><TrendingUp size={15} className="text-[var(--accent-purple-ink)]" /> Faturamento produto</div>
+          <p className="mt-4 text-3xl font-mono font-bold text-[var(--accent-purple-ink)]">{formatCurrency(totalRevenue)}</p>
         </div>
         <div className="rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
-          <div className="flex items-center gap-2 text-zinc-400 text-xs font-mono font-bold uppercase tracking-wider"><ReceiptText size={15} className="text-[#A855F7]" /> Ticket médio produto</div>
-          <p className="mt-4 text-3xl font-mono font-bold text-zinc-100">{formatCurrency(averageTicket)}</p>
+          <div className="flex items-center gap-2 text-[var(--text-muted)] text-xs font-mono font-bold uppercase tracking-wider"><ReceiptText size={15} className="text-[var(--accent-purple-ink)]" /> Ticket médio produto</div>
+          <p className="mt-4 text-3xl font-mono font-bold text-[var(--text-primary)]">{formatCurrency(averageTicket)}</p>
         </div>
       </div>
 
@@ -121,10 +121,10 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
         <section className="xl:col-span-2 rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)] p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Origem de tráfego</h3>
-              <p className="mt-1 text-xs text-zinc-400">Atribuição via e-mail da compra de ingresso.</p>
+              <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">Origem de tráfego</h3>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">Atribuição via e-mail da compra de ingresso.</p>
             </div>
-            <span className="shrink-0 rounded-[6px] bg-[#A855F7]/10 px-2 py-1 text-xs font-mono font-bold text-[#D8B4FE]">{formatNumber(attributedSales)}/{formatNumber(totalSales)}</span>
+            <span className="shrink-0 rounded-[6px] bg-[var(--accent-purple)]/10 px-2 py-1 text-xs font-mono font-bold text-[var(--accent-purple-subtle-ink)]">{formatNumber(attributedSales)}/{formatNumber(totalSales)}</span>
           </div>
           <div className="mt-3 h-[260px]">
             {attribution.length > 0 ? (
@@ -135,26 +135,26 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
                   </Pie>
                   <Tooltip
                     formatter={(value: number, _name: string, item: any) => [`${formatNumber(value)} vendas · ${formatCurrency(item.payload.revenue)}`, item.payload.name]}
-                    contentStyle={{ background: '#151922', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff', fontFamily: 'monospace', fontSize: 12 }}
+                    contentStyle={{ background: 'var(--surface-1)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: 12 }}
                   />
                 </PieChart>
               </ResponsiveContainer>
-            ) : <div className="flex h-full items-center justify-center text-sm text-zinc-500">Nenhuma venda de produto no período.</div>}
+            ) : <div className="flex h-full items-center justify-center text-sm text-[var(--text-subtle)]">Nenhuma venda de produto no período.</div>}
           </div>
         </section>
 
         <section className="xl:col-span-3 overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)]">
           <div className="border-b border-[var(--border-hairline)] px-5 py-4">
-            <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Receita por origem atribuída</h3>
+            <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">Receita por origem atribuída</h3>
           </div>
           <div className="divide-y divide-white/[0.06]">
             {attribution.map((source, index) => (
               <div key={source.name} className="flex flex-col items-stretch gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
-                <div className="flex min-w-0 items-center gap-3"><span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: SOURCE_COLORS[index % SOURCE_COLORS.length] }} /><span className="truncate font-medium text-zinc-100">{source.name}</span></div>
-                <div className="shrink-0 text-left sm:text-right"><p className="font-mono text-xs font-bold text-zinc-100">{formatNumber(source.sales)} vendas</p><p className="font-mono text-xs text-[#D8B4FE]">{formatCurrency(source.revenue)}</p></div>
+                <div className="flex min-w-0 items-center gap-3"><span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: SOURCE_COLORS[index % SOURCE_COLORS.length] }} /><span className="truncate font-medium text-[var(--text-primary)]">{source.name}</span></div>
+                <div className="shrink-0 text-left sm:text-right"><p className="font-mono text-xs font-bold text-[var(--text-primary)]">{formatNumber(source.sales)} vendas</p><p className="font-mono text-xs text-[var(--accent-purple-subtle-ink)]">{formatCurrency(source.revenue)}</p></div>
               </div>
             ))}
-            {attribution.length === 0 && <p className="px-5 py-12 text-center text-sm text-zinc-500">Nenhuma atribuição encontrada.</p>}
+            {attribution.length === 0 && <p className="px-5 py-12 text-center text-sm text-[var(--text-subtle)]">Nenhuma atribuição encontrada.</p>}
           </div>
         </section>
       </div>
@@ -162,23 +162,23 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <section className="xl:col-span-3 overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)]">
           <div className="border-b border-[var(--border-hairline)] px-5 py-4">
-            <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Performance por produto</h3>
+            <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">Performance por produto</h3>
           </div>
           <div className="table-scroll-region overflow-x-auto" tabIndex={0} aria-label="Tabela de performance por produto. Deslize horizontalmente para ver todas as colunas.">
             <table className="w-full text-left">
-              <thead className="border-b border-[var(--border-hairline)] bg-white/[0.035] text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+              <thead className="border-b border-[var(--border-hairline)] bg-[var(--hover-wash)] text-[11px] font-mono font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 <tr><th className="px-5 py-3">Produto</th><th className="px-5 py-3 text-right">Vendas</th><th className="px-5 py-3 text-right">Faturamento</th><th className="px-5 py-3 text-right">Ticket</th></tr>
               </thead>
               <tbody className="divide-y divide-white/[0.06] text-sm">
                 {products.map((product) => (
-                  <tr key={product.name} className="hover:bg-white/[0.035]">
-                    <td className="px-5 py-4 font-medium text-zinc-100">{product.name}</td>
-                    <td className="px-5 py-4 text-right font-mono text-zinc-200">{formatNumber(product.sales)}</td>
-                    <td className="px-5 py-4 text-right font-mono font-bold text-[#A855F7]">{formatCurrency(product.revenue)}</td>
-                    <td className="px-5 py-4 text-right font-mono text-zinc-400">{formatCurrency(product.sales ? product.revenue / product.sales : 0)}</td>
+                  <tr key={product.name} className="hover:bg-[var(--hover-wash)]">
+                    <td className="px-5 py-4 font-medium text-[var(--text-primary)]">{product.name}</td>
+                    <td className="px-5 py-4 text-right font-mono text-[var(--text-primary)]">{formatNumber(product.sales)}</td>
+                    <td className="px-5 py-4 text-right font-mono font-bold text-[var(--accent-purple-ink)]">{formatCurrency(product.revenue)}</td>
+                    <td className="px-5 py-4 text-right font-mono text-[var(--text-muted)]">{formatCurrency(product.sales ? product.revenue / product.sales : 0)}</td>
                   </tr>
                 ))}
-                {products.length === 0 && <tr><td colSpan={4} className="px-5 py-12 text-center text-zinc-500">Nenhuma venda de produto no período.</td></tr>}
+                {products.length === 0 && <tr><td colSpan={4} className="px-5 py-12 text-center text-[var(--text-subtle)]">Nenhuma venda de produto no período.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -186,16 +186,16 @@ export const ProdutosTab: React.FC<ProdutosTabProps> = ({ productBuyers, ticketB
 
         <section className="xl:col-span-2 overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--panel)]">
           <div className="border-b border-[var(--border-hairline)] px-5 py-4">
-            <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-zinc-100">Histórico de produtos</h3>
+            <h3 className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">Histórico de produtos</h3>
           </div>
           <div className="max-h-[360px] overflow-y-auto divide-y divide-white/[0.06]">
             {daily.map((day) => (
               <div key={day.date} className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <span className="font-mono text-xs text-zinc-400">{day.date}</span>
-                <div className="text-right"><p className="font-mono text-xs font-bold text-zinc-100">{formatNumber(day.sales)} vendas</p><p className="font-mono text-xs text-[#A855F7]">{formatCurrency(day.revenue)}</p></div>
+                <span className="font-mono text-xs text-[var(--text-muted)]">{day.date}</span>
+                <div className="text-right"><p className="font-mono text-xs font-bold text-[var(--text-primary)]">{formatNumber(day.sales)} vendas</p><p className="font-mono text-xs text-[var(--accent-purple-ink)]">{formatCurrency(day.revenue)}</p></div>
               </div>
             ))}
-            {daily.length === 0 && <p className="px-5 py-12 text-center text-sm text-zinc-500">Nenhuma venda de produto no período.</p>}
+            {daily.length === 0 && <p className="px-5 py-12 text-center text-sm text-[var(--text-subtle)]">Nenhuma venda de produto no período.</p>}
           </div>
         </section>
       </div>

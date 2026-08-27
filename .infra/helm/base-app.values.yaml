@@ -15,12 +15,8 @@ image:
   pullPolicy: IfNotPresent
 
 app:
-  # server.ts escuta em 0.0.0.0:3000 (porta fixa no código)
   containerPort: 3000
 
-  # O cadastro de funis é persistido em disco (data/funnels.json).
-  # Definir `volume` faz o chart gerar um StatefulSet com volumeClaimTemplate
-  # (EBS, ReadWriteOnce) em vez de um Deployment.
   volume:
     mountPath: /app/data
     sizeInGigabytes: 1
@@ -28,11 +24,13 @@ app:
   env:
     - name: NODE_ENV
       value: "production"
+    - name: DASHBOARD_FUNNELS_SSM_PARAM
+      value: "/allevo-dashboard/funnels"
+    - name: AWS_REGION
+      value: "us-east-1"
     - name: DASHBOARD_FUNNELS_PATH
       value: "/app/data/funnels.json"
 
-  # /healthz é registrado antes do middleware de Basic Auth em server.ts;
-  # todas as outras rotas respondem 401 sem credenciais e quebrariam as probes.
   healthCheck:
     livenessProbe:
       httpGet:
@@ -61,9 +59,6 @@ secret:
   enabled: true
   data: "" # preenchido pelo buildspec a partir do bag do Secrets Manager
 
-# O volume é ReadWriteOnce e o estado (funnels.json) é local ao pod:
-# escalar horizontalmente daria a cada réplica um PVC e um cadastro de funis
-# diferentes. Mantemos réplica única até o estado sair do disco.
 replicaCount: 1
 autoscaling:
   mode: Disabled

@@ -45,8 +45,28 @@ Não existe ambiente de homolog. Para criar um depois, duplique
      }'
    ```
 
-   `NODE_ENV` e `DASHBOARD_FUNNELS_PATH` já vêm de `app.env` no values e não
-   precisam entrar no bag.
+   `NODE_ENV`, `AWS_REGION`, `DASHBOARD_FUNNELS_SSM_PARAM` e
+   `DASHBOARD_FUNNELS_PATH` já vêm de `app.env` no values e não precisam entrar
+   no bag.
+
+3. **Policy de SSM** — o cadastro de funis passa a viver no Parameter Store
+   (`/allevo-dashboard/funnels`, tipo `String`). A role do pod service account
+   criada pelo `eks-application` precisa da policy abaixo **antes** do deploy que
+   sobe `DASHBOARD_FUNNELS_SSM_PARAM`; sem ela, `/api/funnels` responde 502.
+
+   ```json
+   {
+     "Effect": "Allow",
+     "Action": ["ssm:GetParameter", "ssm:PutParameter"],
+     "Resource": "arn:aws:ssm:us-east-1:<account-id>:parameter/allevo-dashboard/funnels"
+   }
+   ```
+
+   Não use `SecureString`: os dados são nome, cor e `sheetId` de funil, e o tipo
+   seguro exigiria também `kms:Decrypt`/`kms:Encrypt` sem ganho nenhum. O
+   parâmetro não precisa ser pré-criado — com `ssm:PutParameter` a aplicação o
+   cria no primeiro cadastro —, mas o ideal é criá-lo já com os dados migrados
+   (ver "Migração dos dados atuais").
 
 ## Como aplicar
 
@@ -64,22 +84,37 @@ Ordem de dependência: `eks-application` → `pipeline` → `notifications` →
 
 ## Decisões específicas desta aplicação
 
-**StatefulSet em vez de Deployment.** O cadastro de funis é gravado em
-`data/funnels.json` (`FUNNEL_CONFIG_PATH` em `server.ts`). `app.volume` no values
-faz o chart gerar um StatefulSet com `volumeClaimTemplate` (EBS, ReadWriteOnce)
-montado em `/app/data`.
+**Cadastro de funis no SSM Parameter Store.** `server.ts` tem dois backends de
+persistência: com `DASHBOARD_FUNNELS_SSM_PARAM` definida, lê e grava no parâmetro
+indicado; sem ela, cai no arquivo de `DASHBOARD_FUNNELS_PATH` (é o caminho usado
+no desenvolvimento local, que assim não precisa de credencial AWS). Parâmetro
+ausente é tratado como cadastro vazio, então o primeiro boot em prod sobe com os
+funis padrão em vez de quebrar.
 
-**Réplica única, sem autoscaling** (`replicaCount: 1`, `autoscaling.mode: Disabled`).
-O volume é ReadWriteOnce e o estado é local ao pod: com N réplicas cada uma
-ganharia um PVC próprio e um cadastro de funis diferente. Consequência em prod:
-o rolling update do StatefulSet derruba o pod antes de subir o novo, então cada
-deploy tem alguns segundos de indisponibilidade. Para escalar horizontalmente e
-acabar com essa janela, o estado precisa sair do disco primeiro — o
-`app-blueprint` tem um módulo `dynamodb/` pronto para isso.
+Duas restrições do Parameter Store viraram código: o tier `Standard` limita o
+valor a 4 KB (~20-25 funis no formato atual), e a gravação recusa payload maior
+com erro legível na tela em vez de estourar o erro cru da AWS — o teto é
+ajustável por `DASHBOARD_FUNNELS_SSM_MAX_BYTES` caso migrem para o tier
+`Advanced` (8 KB, US$ 0,05/mês). E `loadFunnels()` roda em toda request, então o
+resultado fica em cache de memória por `DASHBOARD_FUNNELS_CACHE_TTL_MS` (30s por
+padrão), invalidado a cada escrita; sem isso cada request viraria um
+`GetParameter`.
+
+**StatefulSet e réplica única — temporários.** `app.volume` no values ainda faz o
+chart gerar um StatefulSet com `volumeClaimTemplate` (EBS, ReadWriteOnce) em
+`/app/data`, e `replicaCount: 1` / `autoscaling.mode: Disabled` existem porque o
+volume é ReadWriteOnce. Isso é rede de segurança para a janela de migração:
+depois que o cadastro estiver validado no SSM, remover `app.volume` e liberar
+`replicaCount`/`autoscaling` — aí acaba também a janela de indisponibilidade de
+cada deploy, que hoje vem do rolling update do StatefulSet derrubar o pod antes
+de subir o novo.
 
 **`/healthz`.** `server.ts` aplica Basic Auth global (`app.use(requireDashboardAuth)`),
 então qualquer rota responderia 401 para as probes e o pod nunca ficaria Ready.
 O endpoint `/healthz` é registrado antes do middleware.
+
+**`containerPort: 3000`.** `server.ts` escuta em `0.0.0.0:3000` com a porta fixa
+no código; mudar o valor no values sozinho quebraria service e probes.
 
 **Stage `prod` no Dockerfile.** O buildspec builda com `--target=prod`.
 
@@ -87,11 +122,18 @@ O endpoint `/healthz` é registrado antes do middleware.
 
 Hoje a aplicação roda como container avulso no host EasyPanel (`srv1460092`,
 porta 8088), com bind mount `/opt/allevo-dashboard/data`. O `funnels.json` de lá
-precisa ser copiado para o PVC novo:
+precisa ser carregado no parâmetro do SSM:
 
 ```bash
 # no host antigo
 scp /opt/allevo-dashboard/data/funnels.json .
-# com kubeconfig do cluster
-kubectl -n shared cp funnels.json allevo-dashboard-0:/app/data/funnels.json
+# com o perfil AWS que enxerga a conta de prod
+aws ssm put-parameter \
+  --name /allevo-dashboard/funnels \
+  --type String \
+  --overwrite \
+  --value file://funnels.json
 ```
+
+Faça isso antes do deploy que sobe `DASHBOARD_FUNNELS_SSM_PARAM`. Conferindo
+depois: `aws ssm get-parameter --name /allevo-dashboard/funnels`.

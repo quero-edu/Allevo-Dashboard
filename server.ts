@@ -76,27 +76,102 @@ const DEFAULT_FUNNELS: FunnelConfig[] = [
 ];
 
 const FUNNEL_CONFIG_PATH = process.env.DASHBOARD_FUNNELS_PATH || path.join(process.cwd(), "data", "funnels.json");
+const FUNNEL_SSM_PARAM = (process.env.DASHBOARD_FUNNELS_SSM_PARAM || "").trim();
+const FUNNEL_SSM_MAX_BYTES = Number(process.env.DASHBOARD_FUNNELS_SSM_MAX_BYTES || 4096);
+const FUNNEL_CACHE_TTL_MS = Number(process.env.DASHBOARD_FUNNELS_CACHE_TTL_MS || 30000);
 const CUSTOM_FUNNEL_COLORS = ["#F97316", "#E879F9", "#A3E635", "#38BDF8", "#C084FC"];
 
-async function loadFunnels(): Promise<FunnelConfig[]> {
+type StoredFunnelConfig = {
+  customFunnels: FunnelConfig[];
+  removedBuiltInIds: string[];
+  overrides: Record<string, Partial<FunnelConfig>>;
+};
+
+let ssmPromise: Promise<any> | null = null;
+
+async function ssm() {
+  if (!ssmPromise) {
+    ssmPromise = import("@aws-sdk/client-ssm").then((mod) => ({
+      client: new mod.SSMClient({}),
+      GetParameterCommand: mod.GetParameterCommand,
+      PutParameterCommand: mod.PutParameterCommand
+    }));
+  }
+  return ssmPromise;
+}
+
+async function readFunnelConfigSource(): Promise<string | null> {
+  if (FUNNEL_SSM_PARAM) {
+    const { client, GetParameterCommand } = await ssm();
+    try {
+      const result = await client.send(new GetParameterCommand({ Name: FUNNEL_SSM_PARAM }));
+      return result.Parameter?.Value ?? null;
+    } catch (error: any) {
+      if (error?.name === "ParameterNotFound") return null;
+      throw new Error("Não foi possível ler a configuração de funis no SSM.");
+    }
+  }
+
   try {
-    const raw = await fs.readFile(FUNNEL_CONFIG_PATH, "utf8");
-    const stored = JSON.parse(raw);
-    const customFunnels = Array.isArray(stored) ? stored : stored?.customFunnels;
-    if (!Array.isArray(customFunnels)) return DEFAULT_FUNNELS;
-    const removedBuiltInIds = new Set(Array.isArray(stored?.removedBuiltInIds) ? stored.removedBuiltInIds : []);
-    const overrides = stored?.overrides && typeof stored.overrides === "object" ? stored.overrides : {};
-    const valid = customFunnels.filter((funnel) =>
-      funnel && typeof funnel.id === "string" && typeof funnel.name === "string" && typeof funnel.sheetId === "string"
-    );
-    const builtIns = DEFAULT_FUNNELS
-      .filter((funnel) => !removedBuiltInIds.has(funnel.id))
-      .map((funnel) => ({ ...funnel, ...(overrides[funnel.id] || {}), builtIn: true }));
-    return [...builtIns, ...valid.map((funnel) => ({ ...funnel, builtIn: false }))];
+    return await fs.readFile(FUNNEL_CONFIG_PATH, "utf8");
   } catch (error: any) {
-    if (error?.code === "ENOENT") return DEFAULT_FUNNELS;
+    if (error?.code === "ENOENT") return null;
     throw new Error("Não foi possível ler a configuração de funis.");
   }
+}
+
+async function writeFunnelConfigSource(serialized: string) {
+  if (FUNNEL_SSM_PARAM) {
+    const size = Buffer.byteLength(serialized, "utf8");
+    if (size > FUNNEL_SSM_MAX_BYTES) {
+      throw new Error(
+        `O cadastro de funis ocupa ${size} bytes e ultrapassa o limite de ${FUNNEL_SSM_MAX_BYTES} bytes do parâmetro SSM. Remova algum funil para liberar espaço.`
+      );
+    }
+    const { client, PutParameterCommand } = await ssm();
+    await client.send(new PutParameterCommand({
+      Name: FUNNEL_SSM_PARAM,
+      Value: serialized,
+      Type: "String",
+      Overwrite: true
+    }));
+    return;
+  }
+
+  await fs.mkdir(path.dirname(FUNNEL_CONFIG_PATH), { recursive: true });
+  await fs.writeFile(FUNNEL_CONFIG_PATH, serialized, "utf8");
+}
+
+let funnelCache: { funnels: FunnelConfig[]; expiresAt: number } | null = null;
+
+function resolveFunnels(raw: string | null): FunnelConfig[] {
+  if (raw === null) return DEFAULT_FUNNELS;
+
+  let stored: any;
+  try {
+    stored = JSON.parse(raw);
+  } catch {
+    throw new Error("Não foi possível ler a configuração de funis.");
+  }
+
+  const customFunnels = Array.isArray(stored) ? stored : stored?.customFunnels;
+  if (!Array.isArray(customFunnels)) return DEFAULT_FUNNELS;
+  const removedBuiltInIds = new Set(Array.isArray(stored?.removedBuiltInIds) ? stored.removedBuiltInIds : []);
+  const overrides = stored?.overrides && typeof stored.overrides === "object" ? stored.overrides : {};
+  const valid = customFunnels.filter((funnel) =>
+    funnel && typeof funnel.id === "string" && typeof funnel.name === "string" && typeof funnel.sheetId === "string"
+  );
+  const builtIns = DEFAULT_FUNNELS
+    .filter((funnel) => !removedBuiltInIds.has(funnel.id))
+    .map((funnel) => ({ ...funnel, ...(overrides[funnel.id] || {}), builtIn: true }));
+  return [...builtIns, ...valid.map((funnel) => ({ ...funnel, builtIn: false }))];
+}
+
+async function loadFunnels(): Promise<FunnelConfig[]> {
+  if (funnelCache && funnelCache.expiresAt > Date.now()) return funnelCache.funnels;
+  const funnels = resolveFunnels(await readFunnelConfigSource());
+  funnelCache = { funnels, expiresAt: Date.now() + FUNNEL_CACHE_TTL_MS };
+  return funnels;
 }
 
 async function saveCustomFunnels(funnels: FunnelConfig[]) {
@@ -116,8 +191,11 @@ async function saveCustomFunnels(funnels: FunnelConfig[]) {
       return Object.keys(override).length > 0 ? [[defaultFunnel.id, override]] : [];
     })
   );
-  await fs.mkdir(path.dirname(FUNNEL_CONFIG_PATH), { recursive: true });
-  await fs.writeFile(FUNNEL_CONFIG_PATH, `${JSON.stringify({ customFunnels, removedBuiltInIds, overrides }, null, 2)}\n`, "utf8");
+
+  const stored: StoredFunnelConfig = { customFunnels, removedBuiltInIds, overrides };
+  funnelCache = null;
+  await writeFunnelConfigSource(`${JSON.stringify(stored, null, 2)}\n`);
+  funnelCache = { funnels: resolveFunnels(JSON.stringify(stored)), expiresAt: Date.now() + FUNNEL_CACHE_TTL_MS };
 }
 
 function extractSpreadsheetId(value: unknown) {

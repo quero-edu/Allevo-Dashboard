@@ -108,7 +108,8 @@ async function readFunnelConfigSource(): Promise<string | null> {
       return result.Parameter?.Value ?? null;
     } catch (error: any) {
       if (error?.name === "ParameterNotFound") return null;
-      throw new Error("Não foi possível ler a configuração de funis no SSM.");
+      console.error(`Falha ao ler ${FUNNEL_SSM_PARAM} no SSM:`, error);
+      throw new Error("Não foi possível ler a configuração de funis no SSM.", { cause: error });
     }
   }
 

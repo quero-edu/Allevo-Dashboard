@@ -51,16 +51,15 @@ Não existe ambiente de homolog. Para criar um depois, duplique
 
 3. **Policy de SSM** — o cadastro de funis passa a viver no Parameter Store
    (`/allevo-dashboard/funnels`, tipo `String`). A role do pod service account
-   criada pelo `eks-application` precisa da policy abaixo **antes** do deploy que
-   sobe `DASHBOARD_FUNNELS_SSM_PARAM`; sem ela, `/api/funnels` responde 502.
+   criada pelo `eks-application` só nasce com `ReadSecretManager`; o acesso ao
+   parâmetro vem do input `attach_iam_custom_policy_json_document_on_pod_service_account`
+   em `terragrunt/prod/eks-application/terragrunt.hcl`, que gera a policy inline
+   `CustomPolicies`.
 
-   ```json
-   {
-     "Effect": "Allow",
-     "Action": ["ssm:GetParameter", "ssm:PutParameter"],
-     "Resource": "arn:aws:ssm:us-east-1:<account-id>:parameter/allevo-dashboard/funnels"
-   }
-   ```
+   Esse apply precisa acontecer **antes** do deploy que sobe
+   `DASHBOARD_FUNNELS_SSM_PARAM`. Sem ele o `GetParameter` volta `AccessDenied`,
+   e como a app só trata `ParameterNotFound`, toda requisição de dados responde
+   502 com "Não foi possível ler a configuração de funis no SSM".
 
    Não use `SecureString`: os dados são nome, cor e `sheetId` de funil, e o tipo
    seguro exigiria também `kms:Decrypt`/`kms:Encrypt` sem ganho nenhum. O

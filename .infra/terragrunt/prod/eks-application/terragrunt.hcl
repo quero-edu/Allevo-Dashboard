@@ -12,4 +12,19 @@ inputs = {
   pod_service_account = {
     namespace = "shared"
   }
+
+  attach_iam_custom_policy_json_document_on_pod_service_account = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ReadAndWriteFunnelConfig"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:PutParameter"
+        ]
+        Resource = "arn:aws:ssm:us-east-1:725582217686:parameter/allevo-dashboard/funnels"
+      }
+    ]
+  })
 }

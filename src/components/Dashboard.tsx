@@ -257,17 +257,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           throw new Error('O catálogo de funis retornou vazio.');
         }
         setFunnels(items);
-        setSelectedFunnelIds((current) => {
-          const available = current.filter((id) => items.some((funnel) => funnel.id === id));
-          // Default is "all funnels" on first load; a returning user's saved
-          // selection (if still valid) is preserved instead of being reset.
-          return available.length > 0 ? available : items.map((funnel) => funnel.id);
-        });
+        // Nenhum funil vem selecionado: o usuário escolhe o que quer ver, e a
+        // gente evita baixar todas as planilhas de uma vez ao abrir o dash.
+        setSelectedFunnelIds((current) => current.filter((id) => items.some((funnel) => funnel.id === id)));
       })
       .catch((error) => {
         console.warn('Não foi possível carregar o catálogo de funis; mantendo os funis-base:', error);
         setFunnels((current) => current.length > 0 ? current : DEFAULT_DASHBOARD_FUNNELS);
-        setSelectedFunnelIds((current) => current.length > 0 ? current : DEFAULT_DASHBOARD_FUNNELS.map((funnel) => funnel.id));
       });
   }, []);
   const openFunnelEditor = (funnel: DashboardFunnel) => {
@@ -324,6 +320,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     }
   };
   useEffect(() => {
+    if (!selectedProject) {
+      // Sem funil escolhido não há o que buscar (o servidor cairia no funil
+      // padrão). Invalida qualquer carga em andamento e limpa a tela.
+      activeLoadId.current += 1;
+      setData(null);
+      setFetchError(null);
+      setLoading(false);
+      return;
+    }
     loadData(selectedProject);
     // Keep data fresh without interrupting someone working in another tab.
     const intervalId = setInterval(() => {
@@ -1498,7 +1503,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               <Layers size={16} className="text-[var(--brand-strategy-ink)]" />
               <span className="text-[var(--text-muted)]">Funis</span>
               <span className="hidden min-w-0 truncate text-[var(--text-primary)] sm:inline sm:max-w-60">
-                {selectedFunnelTags.length === funnels.length && funnels.length > 1
+                {selectedFunnelTags.length === 0
+                  ? 'Selecione um funil'
+                  : selectedFunnelTags.length === funnels.length && funnels.length > 1
                   ? 'Todos os funis'
                   : selectedFunnelTags.length === 1
                     ? selectedFunnelTags[0].name
@@ -1699,7 +1706,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               variant="primary"
               size="icon"
               onClick={() => loadData(selectedProject)}
-              disabled={loading}
+              disabled={loading || !selectedProject}
               aria-busy={loading}
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
               aria-label="Sincronizar planilha"
@@ -1838,7 +1845,19 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   })}
               </PopoverPanel>
             </div>
-        {loading && !data ? (
+        {!selectedProject ? (
+          <div role="status" aria-live="polite" className="flex flex-col justify-center items-center h-64 text-center text-[var(--text-muted)] gap-4">
+            <Layers size={32} className="text-[var(--brand-strategy-ink)]" />
+            <div>
+              <p className="font-bold tracking-wide text-[var(--text-primary)]">Nenhum funil selecionado</p>
+              <p className="mt-1 text-sm">Escolha um ou mais funis para carregar os dados.</p>
+            </div>
+            <Button variant="primary" onClick={() => setIsFunnelMenuOpen(true)}>
+              <Layers size={16} className="shrink-0" />
+              <span>Selecionar funis</span>
+            </Button>
+          </div>
+        ) : loading && !data ? (
           <div role="status" aria-live="polite" className="flex flex-col justify-center items-center h-64 text-[var(--text-muted)] gap-4">
             <RotateCcw size={32} className="animate-spin text-[var(--brand-strategy-ink)]" />
             <span className="font-bold tracking-wide">Puxando dados da Planilha...</span>

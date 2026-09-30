@@ -81,6 +81,22 @@ export async function fetchDashboardFunnels(): Promise<DashboardFunnel[]> {
   return payload.funnels;
 }
 
+export const MAX_THUMB_LINKS_PER_REQUEST = 100;
+
+export async function fetchCreativeThumbnails(links: string[]): Promise<Record<string, string>> {
+  const response = await fetch('/api/creative-thumbnails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ links }),
+    signal: AbortSignal.timeout(60000)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.thumbnails) {
+    throw new Error(payload.error || 'Não foi possível carregar as prévias dos criativos.');
+  }
+  return payload.thumbnails;
+}
+
 export async function createDashboardFunnel(name: string, spreadsheetUrl: string): Promise<DashboardFunnel> {
   const response = await fetch('/api/funnels', {
     method: 'POST',

@@ -357,6 +357,7 @@ async function validateFunnelSource(sheetId: string) {
 // Cache bounded by time: previews must not block every dashboard sync.
 const INSTAGRAM_THUMB_TTL_MS = 6 * 60 * 60 * 1000;
 const MAX_THUMB_REQUESTS_IN_FLIGHT = 4;
+const MAX_THUMB_LINKS_PER_REQUEST = 100;
 const MAX_THUMB_CACHE_ENTRIES = 300;
 const instagramThumbCache = new Map<string, { value: string; expiresAt: number }>();
 
@@ -387,8 +388,20 @@ function isAllowedImageUrl(value: string) {
   }
 }
 
+function isInstagramPostUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const isInstagramHost = url.hostname === "instagram.com" || url.hostname.endsWith(".instagram.com");
+    return url.protocol === "https:" && isInstagramHost && /^\/(?:p|reel|reels|tv)\//i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function getInstagramThumb(url: string): Promise<string> {
-  if (!url || !/instagram\.com\/(?:p|reel|reels|tv)\//i.test(url)) return "";
+  // Os links agora chegam do navegador, então só buscamos posts do próprio
+  // instagram.com — nunca uma URL arbitrária que só contenha esse texto.
+  if (!url || !isInstagramPostUrl(url)) return "";
   const cached = instagramThumbCache.get(url);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
   try {
@@ -414,24 +427,18 @@ async function getInstagramThumb(url: string): Promise<string> {
   return "";
 }
 
-async function hydrateCreativeThumbnails(items: any[]): Promise<any[]> {
-  const pendingByLink = new Map<string, any[]>();
-  items.filter((item) => !item["Thumb_Criativo"] && item["Link"]).forEach((item) => {
-    const sameLinkItems = pendingByLink.get(item["Link"]) || [];
-    sameLinkItems.push(item);
-    pendingByLink.set(item["Link"], sameLinkItems);
-  });
-  const pending = [...pendingByLink.entries()];
+async function resolveInstagramThumbnails(links: string[]): Promise<Record<string, string>> {
+  const pending = [...new Set(links)];
+  const thumbnails: Record<string, string> = {};
   let nextIndex = 0;
   const worker = async () => {
     while (nextIndex < pending.length) {
-      const [link, linkedItems] = pending[nextIndex++];
-      const thumbnail = await getInstagramThumb(link);
-      linkedItems.forEach((item) => { item["Thumb_Criativo"] = thumbnail; });
+      const link = pending[nextIndex++];
+      thumbnails[link] = await getInstagramThumb(link);
     }
   };
   await Promise.all(Array.from({ length: Math.min(MAX_THUMB_REQUESTS_IN_FLIGHT, pending.length) }, worker));
-  return items;
+  return thumbnails;
 }
 
 function parseCellVal(rowXml: string, col: string, rowNum: number, strings: string[]): string {
@@ -661,7 +668,7 @@ function fetchFunnelSheetData(sheetId: string): Promise<FunnelSheetData> {
 
   const data = Promise.allSettled([
     fetchFunnelSourceRows(sheetId),
-    fetchCriativosWithThumbs(sheetId)
+    fetchCriativos(sheetId)
   ]);
   // Enquanto a busca está em andamento, a entrada não expira; o TTL só começa
   // a contar quando ela termina. Falhas não ficam em cache.
@@ -677,7 +684,7 @@ function fetchFunnelSheetData(sheetId: string): Promise<FunnelSheetData> {
   return data;
 }
 
-async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
+async function fetchCriativos(sheetId: string): Promise<any[]> {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
     const response = await fetch(url);
@@ -715,11 +722,11 @@ async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
       const creativeXml = await zip.file(creativeSheet.file)?.async("text");
       const rowsFromNamedTab = creativeXml ? parseWorksheetRows(creativeXml, strings) : [];
       if (rowsFromNamedTab.length > 0) {
-        return hydrateCreativeThumbnails(rowsFromNamedTab.map((item: any) => ({
+        return rowsFromNamedTab.map((item: any) => ({
           "Criativos": item["Nome Criativo"] || item["Criativos"] || item["Nome do Anúncio"] || item["Nome"] || "",
           "Link": item["Link Criativo"] || item["Link"] || item["Link dos criativos"] || "",
           "Thumb_Criativo": item["Thumb_Criativo"] || item["Thumb Criativo"] || item["thumb_criativo"] || item["Thumbnail"] || item["Thumb"] || item["Imagem"] || item["Preview"] || item["Prévia"] || ""
-        })));
+        }));
       }
     }
 
@@ -846,9 +853,8 @@ async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
       }
     }
 
-    // Para itens com link do Instagram e sem thumb explícita, tentar resolver a thumb via OpenGraph
-    await hydrateCreativeThumbnails(items);
-    
+    // Thumbs do Instagram sem prévia explícita são resolvidas sob demanda pela
+    // aba Criativos (POST /api/creative-thumbnails), não aqui.
     if (items.length > 0) {
       return items;
     }
@@ -990,6 +996,14 @@ async function startServer() {
       const isPermissionError = /privada|permissão|compartilhar/i.test(message);
       res.status(isPermissionError ? 403 : 422).json({ error: message });
     }
+  });
+
+  app.post("/api/creative-thumbnails", async (req, res) => {
+    const links = req.body?.links;
+    if (!Array.isArray(links) || links.length > MAX_THUMB_LINKS_PER_REQUEST || links.some((link) => typeof link !== "string")) {
+      return res.status(400).json({ error: `Envie "links" como lista de até ${MAX_THUMB_LINKS_PER_REQUEST} URLs.` });
+    }
+    res.json({ thumbnails: await resolveInstagramThumbnails(links) });
   });
 
   app.delete("/api/funnels/:funnelId", requireDashboardAdmin, async (req, res) => {

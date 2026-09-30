@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Search, ExternalLink, Maximize2, ImageOff } from 'lucide-react';
+import { Search, ExternalLink, Maximize2, ImageOff, LoaderCircle } from 'lucide-react';
 import { SortableHeader } from '../ui/SortableHeader';
 import { SectionHeader } from '../ui/SectionHeader';
 import { EmptyTableRow } from '../ui/EmptyState';
@@ -10,6 +10,7 @@ interface CriativosTabProps {
   creativeSort: { column: string; direction: 'asc' | 'desc' };
   toggleCreativeSort: (column: string) => void;
   sortedCreatives: any[];
+  pendingThumbLinks: Set<string>;
   getCreativeThumbnail: (name: string, thumb?: string) => string;
   setActiveLightboxImage: (img: any) => void;
   formatCurrency: (val: number) => string;
@@ -23,6 +24,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
   creativeSort,
   toggleCreativeSort,
   sortedCreatives,
+  pendingThumbLinks,
   getCreativeThumbnail,
   setActiveLightboxImage,
   formatCurrency,
@@ -40,6 +42,13 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
         <SectionHeader
           title="Performance dos criativos"
           action={
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-3">
+            {pendingThumbLinks.size > 0 && (
+              <span role="status" aria-live="polite" className="inline-flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]">
+                <LoaderCircle size={14} className="animate-spin text-[var(--brand-strategy-ink)]" />
+                Carregando prévias...
+              </span>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]" size={15} />
               <input
@@ -50,6 +59,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                 onChange={e => setCreativeFilter(e.target.value)}
                 className="pl-9 pr-4 py-2 bg-[var(--surface-3)] border border-[var(--border-hairline)] rounded-[var(--radius-control)] text-base sm:text-xs text-[var(--text-primary)] placeholder:text-[var(--text-subtle)] focus:ring-2 focus:ring-[var(--brand-strategy-ink)]/30 focus:border-[var(--brand-strategy-ink)] transition-all w-full sm:w-64 shadow-inner"
               />
+            </div>
             </div>
           }
         />
@@ -75,6 +85,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
             {visibleCreatives.map((c: any) => {
                 const rawThumb = c.Thumb_Criativo || c.thumb || c.thumbnail || c.image;
                 const thumbUrl = getCreativeThumbnail(c.name, rawThumb);
+                const isThumbLoading = !thumbUrl && pendingThumbLinks.has(c.link);
                 return (
                   <tr key={c.name} className="hover:bg-[var(--hover-wash)] transition-colors">
                     <td className="px-3 py-3 text-center">
@@ -82,7 +93,7 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                         disabled={!thumbUrl}
                         onClick={() => setActiveLightboxImage({ name: c.name, url: thumbUrl, link: c.link, stats: c })}
                         className="relative group/thumb block mx-auto cursor-pointer disabled:cursor-default"
-                        title={thumbUrl ? "Clique para ampliar prévia do criativo" : "Prévia indisponível para este criativo"}
+                        title={thumbUrl ? "Clique para ampliar prévia do criativo" : isThumbLoading ? "Carregando prévia..." : "Prévia indisponível para este criativo"}
                       >
                         <div className="w-12 h-9 rounded-[6px] bg-[var(--surface-3)] overflow-hidden border border-[var(--border-hairline)] group-hover/thumb:border-[var(--brand-strategy-ink)] transition-all shadow-sm flex items-center justify-center relative">
                           {thumbUrl ? <img
@@ -98,7 +109,9 @@ export const CriativosTab: React.FC<CriativosTabProps> = ({
                                 target.src = `/api/proxy-image?url=${encodeURIComponent(rawThumb)}`;
                               }
                             }}
-                          /> : <ImageOff size={15} className="text-[var(--text-subtle)]" aria-label="Prévia indisponível" />}
+                          /> : isThumbLoading
+                            ? <LoaderCircle size={15} className="animate-spin text-[var(--brand-strategy-ink)]" aria-label="Carregando prévia" />
+                            : <ImageOff size={15} className="text-[var(--text-subtle)]" aria-label="Prévia indisponível" />}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
                             <Maximize2 size={12} className="text-[var(--brand-strategy-ink)]" />
                           </div>

@@ -4,7 +4,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X, Pencil, Trash2,
   ShieldCheck, LogOut, UserCheck, Shield, Maximize2, PanelLeftClose, PanelLeftOpen, History, Sun, Moon
 } from 'lucide-react';
-import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchDashboardFunnels, fetchSpreadsheetData, updateDashboardFunnel } from '../services/api';
+import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchCreativeThumbnails, fetchDashboardFunnels, fetchSpreadsheetData, MAX_THUMB_LINKS_PER_REQUEST, updateDashboardFunnel } from '../services/api';
 import { cn } from '../lib/utils';
 import { filterByDate, buildDateFilter, buildPreviousDateFilter, getPreviousPeriodLabel, calculateComparison, parseValue, formatCurrency, formatPercent, formatNumber, parseUtcToUtcMinus3 } from '../lib/metrics';
 import { useSortState } from '../lib/hooks';
@@ -41,6 +41,9 @@ function PanelLoadingState() {
       Carregando painel...
     </div>
   );
+}
+function isInstagramPostLink(link?: string) {
+  return typeof link === 'string' && /^https:\/\/(?:[a-z0-9-]+\.)?instagram\.com\/(?:p|reel|reels|tv)\//i.test(link.trim());
 }
 function getCreativeThumbnail(creativeName: string, customImage?: string) {
   if (customImage && typeof customImage === 'string' && customImage.trim() !== '') {
@@ -1290,6 +1293,40 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       return creativeSort.direction === 'asc' ? valA - valB : valB - valA;
     });
   }, [metricsData.creatives, creativeSort]);
+  // Prévias do Instagram só são buscadas quando a aba Criativos é aberta, pra
+  // não atrasar a carga das planilhas. Chave: link do post.
+  const [instagramThumbs, setInstagramThumbs] = useState<Record<string, string>>({});
+  const [pendingThumbLinks, setPendingThumbLinks] = useState<Set<string>>(() => new Set());
+  const requestedThumbLinks = useRef(new Set<string>());
+  useEffect(() => {
+    if (activeTab !== 'Criativos') return;
+    const missing = [...new Set(sortedCreatives
+      .filter((creative: any) => !creative.Thumb_Criativo && isInstagramPostLink(creative.link))
+      .map((creative: any) => creative.link as string))]
+      .filter((link) => !requestedThumbLinks.current.has(link));
+    if (missing.length === 0) return;
+    missing.forEach((link) => requestedThumbLinks.current.add(link));
+    setPendingThumbLinks((current) => new Set([...current, ...missing]));
+    for (let start = 0; start < missing.length; start += MAX_THUMB_LINKS_PER_REQUEST) {
+      const batch = missing.slice(start, start + MAX_THUMB_LINKS_PER_REQUEST);
+      fetchCreativeThumbnails(batch)
+        .then((thumbnails) => setInstagramThumbs((current) => ({ ...current, ...thumbnails })))
+        .catch((error) => {
+          console.warn('Não foi possível carregar as prévias dos criativos:', error);
+          // Libera pra tentar de novo na próxima vez que a aba for aberta.
+          batch.forEach((link) => requestedThumbLinks.current.delete(link));
+        })
+        .finally(() => setPendingThumbLinks((current) => {
+          const next = new Set(current);
+          batch.forEach((link) => next.delete(link));
+          return next;
+        }));
+    }
+  }, [activeTab, sortedCreatives]);
+  const creativesWithThumbs = useMemo(() => sortedCreatives.map((creative: any) => {
+    const thumbnail = !creative.Thumb_Criativo && instagramThumbs[creative.link];
+    return thumbnail ? { ...creative, thumb: thumbnail, Thumb_Criativo: thumbnail } : creative;
+  }), [sortedCreatives, instagramThumbs]);
   const sortedCampaigns = useMemo(() => {
     return [...metricsData.campaigns]
       .map((camp: any) => ({
@@ -2112,7 +2149,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 setCreativeFilter={setCreativeFilter}
                 creativeSort={creativeSort}
                 toggleCreativeSort={toggleCreativeSort}
-                sortedCreatives={sortedCreatives}
+                sortedCreatives={creativesWithThumbs}
+                pendingThumbLinks={pendingThumbLinks}
                 getCreativeThumbnail={getCreativeThumbnail}
                 setActiveLightboxImage={setActiveLightboxImage}
                 formatCurrency={formatCurrency}

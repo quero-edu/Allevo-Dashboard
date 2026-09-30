@@ -30,6 +30,8 @@ app:
       value: "us-east-1"
     - name: DASHBOARD_FUNNELS_PATH
       value: "/app/data/funnels.json"
+    - name: DASHBOARD_FUNNEL_DATA_CACHE_TTL_MS
+      value: "60000"
 
   healthCheck:
     livenessProbe:

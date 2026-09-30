@@ -441,9 +441,10 @@ function parseCellVal(rowXml: string, col: string, rowNum: number, strings: stri
 
   const cellMatch = rowXml.match(new RegExp(`<c r="${col}${rowNum}"([^>]*)>(.*?)</c>`, "s"));
   if (!cellMatch) return "";
-  const attrs = cellMatch[1] || "";
-  const body = cellMatch[2] || "";
-  
+  return cellValueFromBody(cellMatch[1] || "", cellMatch[2] || "", strings);
+}
+
+function cellValueFromBody(attrs: string, body: string, strings: string[]): string {
   const fMatch = body.match(/<f[^>]*>(.*?)<\/f>/s);
   const vMatch = body.match(/<v[^>]*>(.*?)<\/v>/s);
   
@@ -472,19 +473,43 @@ function normalizeTabName(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 }
 
+// Lê todas as células de uma linha numa única varredura. Chamar parseCellVal
+// por célula criava duas RegExp novas por célula (o padrão inclui o número da
+// linha), o que levava o funil GP a ~500 MB de memória só nesse parse.
+function parseRowCells(rowXml: string, strings: string[]): Map<string, string> {
+  const cells = new Map<string, string>();
+  const cellTag = /<c r="([A-Z]+)\d+"([^>]*)>/g;
+  let match: RegExpExecArray | null;
+  while ((match = cellTag.exec(rowXml))) {
+    const [, column, attrs] = match;
+    if (attrs.endsWith("/")) {
+      if (!cells.has(column)) cells.set(column, "");
+      continue;
+    }
+    const bodyStart = cellTag.lastIndex;
+    const bodyEnd = rowXml.indexOf("</c>", bodyStart);
+    if (bodyEnd === -1) continue;
+    if (!cells.has(column)) cells.set(column, cellValueFromBody(attrs, rowXml.slice(bodyStart, bodyEnd), strings));
+    cellTag.lastIndex = bodyEnd + 4;
+  }
+  return cells;
+}
+
 function parseWorksheetRows(sheetXml: string, strings: string[]): any[] {
   const rows = sheetXml.match(/<row\b[^>]*r="\d+"[^>]*>[\s\S]*?<\/row>/g) || [];
   const headerRow = rows.find((row) => /<row\b[^>]*r="1"/.test(row));
   if (!headerRow) return [];
   const columns = [...headerRow.matchAll(/<c r="([A-Z]+)1"/g)].map((match) => match[1]);
-  const headers = columns.map((column) => parseCellVal(headerRow, column, 1, strings) || `Coluna ${column}`);
+  const headerCells = parseRowCells(headerRow, strings);
+  const headers = columns.map((column) => headerCells.get(column) || `Coluna ${column}`);
 
   return rows
     .map((row) => ({ row, rowNumber: Number(row.match(/<row\b[^>]*r="(\d+)"/)?.[1] || 0) }))
     .filter(({ rowNumber }) => rowNumber > 1)
-    .map(({ row, rowNumber }) => Object.fromEntries(
-      columns.map((column, index) => [headers[index], parseCellVal(row, column, rowNumber, strings)])
-    ));
+    .map(({ row }) => {
+      const cells = parseRowCells(row, strings);
+      return Object.fromEntries(columns.map((column, index) => [headers[index], cells.get(column) || ""]));
+    });
 }
 
 type FunnelSourceRows = {
@@ -616,6 +641,40 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows>
       sourceType: fgpResult.found ? "paid-launch" : "standard"
     };
   }
+}
+
+// Reaproveita o resultado de cada planilha por um curto período, e usuários
+// abrindo o mesmo funil ao mesmo tempo compartilham um único download/parse
+// em vez de multiplicar o uso de memória.
+const FUNNEL_DATA_CACHE_TTL_MS = Number(process.env.DASHBOARD_FUNNEL_DATA_CACHE_TTL_MS || 60000);
+
+type FunnelSheetData = [PromiseSettledResult<FunnelSourceRows>, PromiseSettledResult<any[]>];
+const funnelDataCache = new Map<string, { data: Promise<FunnelSheetData>; expiresAt: number }>();
+
+function fetchFunnelSheetData(sheetId: string): Promise<FunnelSheetData> {
+  const now = Date.now();
+  for (const [key, entry] of funnelDataCache) {
+    if (entry.expiresAt <= now) funnelDataCache.delete(key);
+  }
+  const cached = funnelDataCache.get(sheetId);
+  if (cached) return cached.data;
+
+  const data = Promise.allSettled([
+    fetchFunnelSourceRows(sheetId),
+    fetchCriativosWithThumbs(sheetId)
+  ]);
+  // Enquanto a busca está em andamento, a entrada não expira; o TTL só começa
+  // a contar quando ela termina. Falhas não ficam em cache.
+  const entry = { data, expiresAt: Infinity };
+  funnelDataCache.set(sheetId, entry);
+  data.then(([source, creatives]) => {
+    if (source.status === "fulfilled" && creatives.status === "fulfilled") {
+      entry.expiresAt = Date.now() + FUNNEL_DATA_CACHE_TTL_MS;
+    } else if (funnelDataCache.get(sheetId) === entry) {
+      funnelDataCache.delete(sheetId);
+    }
+  });
+  return data;
 }
 
 async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
@@ -1147,10 +1206,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
       };
 
       const sources = await Promise.all(selectedFunnels.map(async (funnel) => {
-        const [funnelSourceResult, criativosResult] = await Promise.allSettled([
-          fetchFunnelSourceRows(funnel.sheetId),
-          fetchCriativosWithThumbs(funnel.sheetId)
-        ]);
+        const [funnelSourceResult, criativosResult] = await fetchFunnelSheetData(funnel.sheetId);
 
         const sourceError = funnelSourceResult.status === "rejected"
           ? (funnelSourceResult.reason?.message || "Não foi possível ler os dados de Meta e Compradores.")

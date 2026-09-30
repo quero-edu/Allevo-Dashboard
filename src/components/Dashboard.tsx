@@ -4,7 +4,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X, Pencil, Trash2,
   ShieldCheck, LogOut, UserCheck, Shield, Maximize2, PanelLeftClose, PanelLeftOpen, History, Sun, Moon
 } from 'lucide-react';
-import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchCreativeThumbnails, fetchDashboardFunnels, fetchSpreadsheetData, MAX_THUMB_LINKS_PER_REQUEST, updateDashboardFunnel } from '../services/api';
+import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchCreativeThumbnails, fetchDashboardFunnels, fetchSpreadsheetData, THUMB_LINKS_PER_BATCH, updateDashboardFunnel } from '../services/api';
 import { cn } from '../lib/utils';
 import { filterByDate, buildDateFilter, buildPreviousDateFilter, getPreviousPeriodLabel, calculateComparison, parseValue, formatCurrency, formatPercent, formatNumber, parseUtcToUtcMinus3 } from '../lib/metrics';
 import { useSortState } from '../lib/hooks';
@@ -43,7 +43,7 @@ function PanelLoadingState() {
   );
 }
 function isInstagramPostLink(link?: string) {
-  return typeof link === 'string' && /^https:\/\/(?:[a-z0-9-]+\.)?instagram\.com\/(?:p|reel|reels|tv)\//i.test(link.trim());
+  return typeof link === 'string' && /^https?:\/\/(?:[a-z0-9-]+\.)?instagram\.com\/(?:p|reel|reels|tv)\//i.test(link.trim());
 }
 function getCreativeThumbnail(creativeName: string, customImage?: string) {
   if (customImage && typeof customImage === 'string' && customImage.trim() !== '') {
@@ -226,14 +226,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   // Each modal below renders through <Dialog>, which owns its own focus
   // trap/Escape/backdrop handling — no shared modal effect needed here.
   const selectedProject = selectedFunnelIds.join(',');
-  const loadData = async (proj?: string) => {
+  const loadData = async (proj?: string, refresh = false) => {
     const targetProj = proj || selectedProject;
     const loadId = activeLoadId.current + 1;
     activeLoadId.current = loadId;
     setLoading(true);
     setFetchError(null);
     try {
-      const result = await fetchSpreadsheetData(targetProj);
+      const result = await fetchSpreadsheetData(targetProj, undefined, undefined, undefined, refresh);
       if (loadId !== activeLoadId.current) return;
       setData(result);
       setLastUpdated(new Date());
@@ -1307,8 +1307,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     if (missing.length === 0) return;
     missing.forEach((link) => requestedThumbLinks.current.add(link));
     setPendingThumbLinks((current) => new Set([...current, ...missing]));
-    for (let start = 0; start < missing.length; start += MAX_THUMB_LINKS_PER_REQUEST) {
-      const batch = missing.slice(start, start + MAX_THUMB_LINKS_PER_REQUEST);
+    for (let start = 0; start < missing.length; start += THUMB_LINKS_PER_BATCH) {
+      const batch = missing.slice(start, start + THUMB_LINKS_PER_BATCH);
       fetchCreativeThumbnails(batch)
         .then((thumbnails) => setInstagramThumbs((current) => ({ ...current, ...thumbnails })))
         .catch((error) => {
@@ -1742,7 +1742,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <Button
               variant="primary"
               size="icon"
-              onClick={() => loadData(selectedProject)}
+              onClick={() => loadData(selectedProject, true)}
               disabled={loading || !selectedProject}
               aria-busy={loading}
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
@@ -1822,7 +1822,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 )}
               </div>
             </div>
-            <Button variant="primary" onClick={() => loadData(selectedProject)} disabled={loading} className="shrink-0 self-stretch md:self-auto justify-center">
+            <Button variant="primary" onClick={() => loadData(selectedProject, true)} disabled={loading} className="shrink-0 self-stretch md:self-auto justify-center">
               <RotateCcw size={16} className={cn("shrink-0", loading && "animate-spin")} />
               <span>Tentar Novamente</span>
             </Button>

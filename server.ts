@@ -392,7 +392,7 @@ function isInstagramPostUrl(value: string) {
   try {
     const url = new URL(value);
     const isInstagramHost = url.hostname === "instagram.com" || url.hostname.endsWith(".instagram.com");
-    return url.protocol === "https:" && isInstagramHost && /^\/(?:p|reel|reels|tv)\//i.test(url.pathname);
+    return (url.protocol === "https:" || url.protocol === "http:") && isInstagramHost && /^\/(?:p|reel|reels|tv)\//i.test(url.pathname);
   } catch {
     return false;
   }
@@ -658,13 +658,15 @@ const FUNNEL_DATA_CACHE_TTL_MS = Number(process.env.DASHBOARD_FUNNEL_DATA_CACHE_
 type FunnelSheetData = [PromiseSettledResult<FunnelSourceRows>, PromiseSettledResult<any[]>];
 const funnelDataCache = new Map<string, { data: Promise<FunnelSheetData>; expiresAt: number }>();
 
-function fetchFunnelSheetData(sheetId: string): Promise<FunnelSheetData> {
+function fetchFunnelSheetData(sheetId: string, bypassCache = false): Promise<FunnelSheetData> {
   const now = Date.now();
   for (const [key, entry] of funnelDataCache) {
     if (entry.expiresAt <= now) funnelDataCache.delete(key);
   }
   const cached = funnelDataCache.get(sheetId);
-  if (cached) return cached.data;
+  // Sincronização manual pula o resultado pronto, mas ainda aproveita uma
+  // busca em andamento (ela já é tão recente quanto uma nova).
+  if (cached && (!bypassCache || cached.expiresAt === Infinity)) return cached.data;
 
   const data = Promise.allSettled([
     fetchFunnelSourceRows(sheetId),
@@ -1024,6 +1026,7 @@ async function startServer() {
   app.get("/api/spreadsheet", async (req, res) => {
     try {
       const requestedProject = String(req.query.project || "estrategia");
+      const bypassCache = req.query.refresh === "1";
       const funnels = await loadFunnels();
       const aliases: Record<string, string> = { "1": "estrategia", "2": "gestao-ia" };
       const requestedIds = requestedProject === "all" || requestedProject === "consolidado" || requestedProject === "both"
@@ -1220,7 +1223,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
       };
 
       const sources = await Promise.all(selectedFunnels.map(async (funnel) => {
-        const [funnelSourceResult, criativosResult] = await fetchFunnelSheetData(funnel.sheetId);
+        const [funnelSourceResult, criativosResult] = await fetchFunnelSheetData(funnel.sheetId, bypassCache);
 
         const sourceError = funnelSourceResult.status === "rejected"
           ? (funnelSourceResult.reason?.message || "Não foi possível ler os dados de Meta e Compradores.")

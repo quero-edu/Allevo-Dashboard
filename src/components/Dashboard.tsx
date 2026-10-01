@@ -4,7 +4,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Zap, Ticket, ShoppingCart, Target, Megaphone, ChevronDown, PieChart, Eye, MousePointerClick, Monitor, Plus, Equal, Image, ExternalLink, Search, Bell, AlertTriangle, Check, X, Pencil, Trash2,
   ShieldCheck, LogOut, UserCheck, Shield, Maximize2, PanelLeftClose, PanelLeftOpen, History, Sun, Moon
 } from 'lucide-react';
-import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchDashboardFunnels, fetchSpreadsheetData, updateDashboardFunnel } from '../services/api';
+import { createDashboardFunnel, DashboardFunnel, deleteDashboardFunnel, fetchCreativeThumbnails, fetchDashboardFunnels, fetchSpreadsheetData, THUMB_LINKS_PER_BATCH, updateDashboardFunnel } from '../services/api';
 import { cn } from '../lib/utils';
 import { filterByDate, buildDateFilter, buildPreviousDateFilter, getPreviousPeriodLabel, calculateComparison, parseValue, formatCurrency, formatPercent, formatNumber, parseUtcToUtcMinus3 } from '../lib/metrics';
 import { useSortState } from '../lib/hooks';
@@ -41,6 +41,9 @@ function PanelLoadingState() {
       Carregando painel...
     </div>
   );
+}
+function isInstagramPostLink(link?: string) {
+  return typeof link === 'string' && /^https?:\/\/(?:[a-z0-9-]+\.)?instagram\.com\/(?:p|reel|reels|tv)\//i.test(link.trim());
 }
 function getCreativeThumbnail(creativeName: string, customImage?: string) {
   if (customImage && typeof customImage === 'string' && customImage.trim() !== '') {
@@ -223,14 +226,14 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
   // Each modal below renders through <Dialog>, which owns its own focus
   // trap/Escape/backdrop handling — no shared modal effect needed here.
   const selectedProject = selectedFunnelIds.join(',');
-  const loadData = async (proj?: string) => {
+  const loadData = async (proj?: string, refresh = false) => {
     const targetProj = proj || selectedProject;
     const loadId = activeLoadId.current + 1;
     activeLoadId.current = loadId;
     setLoading(true);
     setFetchError(null);
     try {
-      const result = await fetchSpreadsheetData(targetProj);
+      const result = await fetchSpreadsheetData(targetProj, undefined, undefined, undefined, refresh);
       if (loadId !== activeLoadId.current) return;
       setData(result);
       setLastUpdated(new Date());
@@ -257,17 +260,13 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
           throw new Error('O catálogo de funis retornou vazio.');
         }
         setFunnels(items);
-        setSelectedFunnelIds((current) => {
-          const available = current.filter((id) => items.some((funnel) => funnel.id === id));
-          // Default is "all funnels" on first load; a returning user's saved
-          // selection (if still valid) is preserved instead of being reset.
-          return available.length > 0 ? available : items.map((funnel) => funnel.id);
-        });
+        // Nenhum funil vem selecionado: o usuário escolhe o que quer ver, e a
+        // gente evita baixar todas as planilhas de uma vez ao abrir o dash.
+        setSelectedFunnelIds((current) => current.filter((id) => items.some((funnel) => funnel.id === id)));
       })
       .catch((error) => {
         console.warn('Não foi possível carregar o catálogo de funis; mantendo os funis-base:', error);
         setFunnels((current) => current.length > 0 ? current : DEFAULT_DASHBOARD_FUNNELS);
-        setSelectedFunnelIds((current) => current.length > 0 ? current : DEFAULT_DASHBOARD_FUNNELS.map((funnel) => funnel.id));
       });
   }, []);
   const openFunnelEditor = (funnel: DashboardFunnel) => {
@@ -324,6 +323,15 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
     }
   };
   useEffect(() => {
+    if (!selectedProject) {
+      // Sem funil escolhido não há o que buscar (o servidor cairia no funil
+      // padrão). Invalida qualquer carga em andamento e limpa a tela.
+      activeLoadId.current += 1;
+      setData(null);
+      setFetchError(null);
+      setLoading(false);
+      return;
+    }
     loadData(selectedProject);
     // Keep data fresh without interrupting someone working in another tab.
     const intervalId = setInterval(() => {
@@ -1285,6 +1293,40 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
       return creativeSort.direction === 'asc' ? valA - valB : valB - valA;
     });
   }, [metricsData.creatives, creativeSort]);
+  // Prévias do Instagram só são buscadas quando a aba Criativos é aberta, pra
+  // não atrasar a carga das planilhas. Chave: link do post.
+  const [instagramThumbs, setInstagramThumbs] = useState<Record<string, string>>({});
+  const [pendingThumbLinks, setPendingThumbLinks] = useState<Set<string>>(() => new Set());
+  const requestedThumbLinks = useRef(new Set<string>());
+  useEffect(() => {
+    if (activeTab !== 'Criativos') return;
+    const missing = [...new Set(sortedCreatives
+      .filter((creative: any) => !creative.Thumb_Criativo && isInstagramPostLink(creative.link))
+      .map((creative: any) => creative.link as string))]
+      .filter((link) => !requestedThumbLinks.current.has(link));
+    if (missing.length === 0) return;
+    missing.forEach((link) => requestedThumbLinks.current.add(link));
+    setPendingThumbLinks((current) => new Set([...current, ...missing]));
+    for (let start = 0; start < missing.length; start += THUMB_LINKS_PER_BATCH) {
+      const batch = missing.slice(start, start + THUMB_LINKS_PER_BATCH);
+      fetchCreativeThumbnails(batch)
+        .then((thumbnails) => setInstagramThumbs((current) => ({ ...current, ...thumbnails })))
+        .catch((error) => {
+          console.warn('Não foi possível carregar as prévias dos criativos:', error);
+          // Libera pra tentar de novo na próxima vez que a aba for aberta.
+          batch.forEach((link) => requestedThumbLinks.current.delete(link));
+        })
+        .finally(() => setPendingThumbLinks((current) => {
+          const next = new Set(current);
+          batch.forEach((link) => next.delete(link));
+          return next;
+        }));
+    }
+  }, [activeTab, sortedCreatives]);
+  const creativesWithThumbs = useMemo(() => sortedCreatives.map((creative: any) => {
+    const thumbnail = !creative.Thumb_Criativo && instagramThumbs[creative.link];
+    return thumbnail ? { ...creative, thumb: thumbnail, Thumb_Criativo: thumbnail } : creative;
+  }), [sortedCreatives, instagramThumbs]);
   const sortedCampaigns = useMemo(() => {
     return [...metricsData.campaigns]
       .map((camp: any) => ({
@@ -1498,7 +1540,9 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
               <Layers size={16} className="text-[var(--brand-strategy-ink)]" />
               <span className="text-[var(--text-muted)]">Funis</span>
               <span className="hidden min-w-0 truncate text-[var(--text-primary)] sm:inline sm:max-w-60">
-                {selectedFunnelTags.length === funnels.length && funnels.length > 1
+                {selectedFunnelTags.length === 0
+                  ? 'Selecione um funil'
+                  : selectedFunnelTags.length === funnels.length && funnels.length > 1
                   ? 'Todos os funis'
                   : selectedFunnelTags.length === 1
                     ? selectedFunnelTags[0].name
@@ -1698,8 +1742,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
             <Button
               variant="primary"
               size="icon"
-              onClick={() => loadData(selectedProject)}
-              disabled={loading}
+              onClick={() => loadData(selectedProject, true)}
+              disabled={loading || !selectedProject}
               aria-busy={loading}
               title={lastUpdated ? `Última sincronização às ${lastUpdated.toLocaleTimeString()}` : "Sincronizar planilha"}
               aria-label="Sincronizar planilha"
@@ -1778,7 +1822,7 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 )}
               </div>
             </div>
-            <Button variant="primary" onClick={() => loadData(selectedProject)} disabled={loading} className="shrink-0 self-stretch md:self-auto justify-center">
+            <Button variant="primary" onClick={() => loadData(selectedProject, true)} disabled={loading} className="shrink-0 self-stretch md:self-auto justify-center">
               <RotateCcw size={16} className={cn("shrink-0", loading && "animate-spin")} />
               <span>Tentar Novamente</span>
             </Button>
@@ -1838,7 +1882,19 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                   })}
               </PopoverPanel>
             </div>
-        {loading && !data ? (
+        {!selectedProject ? (
+          <div role="status" aria-live="polite" className="flex flex-col justify-center items-center h-64 text-center text-[var(--text-muted)] gap-4">
+            <Layers size={32} className="text-[var(--brand-strategy-ink)]" />
+            <div>
+              <p className="font-bold tracking-wide text-[var(--text-primary)]">Nenhum funil selecionado</p>
+              <p className="mt-1 text-sm">Escolha um ou mais funis para carregar os dados.</p>
+            </div>
+            <Button variant="primary" onClick={() => setIsFunnelMenuOpen(true)}>
+              <Layers size={16} className="shrink-0" />
+              <span>Selecionar funis</span>
+            </Button>
+          </div>
+        ) : loading && !data ? (
           <div role="status" aria-live="polite" className="flex flex-col justify-center items-center h-64 text-[var(--text-muted)] gap-4">
             <RotateCcw size={32} className="animate-spin text-[var(--brand-strategy-ink)]" />
             <span className="font-bold tracking-wide">Puxando dados da Planilha...</span>
@@ -2093,7 +2149,8 @@ export default function Dashboard({ authUser, onLogout, onOpenSecuritySettings }
                 setCreativeFilter={setCreativeFilter}
                 creativeSort={creativeSort}
                 toggleCreativeSort={toggleCreativeSort}
-                sortedCreatives={sortedCreatives}
+                sortedCreatives={creativesWithThumbs}
+                pendingThumbLinks={pendingThumbLinks}
                 getCreativeThumbnail={getCreativeThumbnail}
                 setActiveLightboxImage={setActiveLightboxImage}
                 formatCurrency={formatCurrency}

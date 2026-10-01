@@ -16,8 +16,10 @@ export interface DashboardFunnel {
 
 const wait = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
 
-export async function fetchSpreadsheetData(project: string = '1', sheetId?: string, retries = 2, delay = 1500): Promise<any> {
+export async function fetchSpreadsheetData(project: string = '1', sheetId?: string, retries = 2, delay = 1500, refresh = false): Promise<any> {
   let url = `/api/spreadsheet?project=${project}&t=` + Date.now();
+  // Sincronização manual ignora o cache curto do servidor.
+  if (refresh) url += '&refresh=1';
   if (sheetId) {
     url += `&sheetId=${encodeURIComponent(sheetId)}`;
   }
@@ -60,7 +62,7 @@ export async function fetchSpreadsheetData(project: string = '1', sheetId?: stri
       : error?.name === 'TimeoutError' || error?.name === 'AbortError' || error instanceof TypeError;
     if (retryable && retries > 0) {
       await wait(delay);
-      return fetchSpreadsheetData(project, sheetId, retries - 1, Math.round(delay * 1.5));
+      return fetchSpreadsheetData(project, sheetId, retries - 1, Math.round(delay * 1.5), refresh);
     }
     if (retryable && (error?.name === 'TimeoutError' || error?.name === 'AbortError')) {
       throw new Error('A planilha demorou mais que o esperado para responder. Tente sincronizar novamente.');
@@ -79,6 +81,24 @@ export async function fetchDashboardFunnels(): Promise<DashboardFunnel[]> {
     throw new Error(payload.error || 'Não foi possível carregar os funis cadastrados.');
   }
   return payload.funnels;
+}
+
+// Lotes pequenos terminam bem antes do timeout abaixo mesmo com o Instagram
+// lento (4 buscas em paralelo no servidor, até 3,5s cada).
+export const THUMB_LINKS_PER_BATCH = 40;
+
+export async function fetchCreativeThumbnails(links: string[]): Promise<Record<string, string>> {
+  const response = await fetch('/api/creative-thumbnails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ links }),
+    signal: AbortSignal.timeout(60000)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.thumbnails) {
+    throw new Error(payload.error || 'Não foi possível carregar as prévias dos criativos.');
+  }
+  return payload.thumbnails;
 }
 
 export async function createDashboardFunnel(name: string, spreadsheetUrl: string): Promise<DashboardFunnel> {

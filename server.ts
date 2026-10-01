@@ -357,6 +357,7 @@ async function validateFunnelSource(sheetId: string) {
 // Cache bounded by time: previews must not block every dashboard sync.
 const INSTAGRAM_THUMB_TTL_MS = 6 * 60 * 60 * 1000;
 const MAX_THUMB_REQUESTS_IN_FLIGHT = 4;
+const MAX_THUMB_LINKS_PER_REQUEST = 100;
 const MAX_THUMB_CACHE_ENTRIES = 300;
 const instagramThumbCache = new Map<string, { value: string; expiresAt: number }>();
 
@@ -387,8 +388,20 @@ function isAllowedImageUrl(value: string) {
   }
 }
 
+function isInstagramPostUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const isInstagramHost = url.hostname === "instagram.com" || url.hostname.endsWith(".instagram.com");
+    return (url.protocol === "https:" || url.protocol === "http:") && isInstagramHost && /^\/(?:p|reel|reels|tv)\//i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function getInstagramThumb(url: string): Promise<string> {
-  if (!url || !/instagram\.com\/(?:p|reel|reels|tv)\//i.test(url)) return "";
+  // Os links agora chegam do navegador, então só buscamos posts do próprio
+  // instagram.com — nunca uma URL arbitrária que só contenha esse texto.
+  if (!url || !isInstagramPostUrl(url)) return "";
   const cached = instagramThumbCache.get(url);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
   try {
@@ -414,24 +427,18 @@ async function getInstagramThumb(url: string): Promise<string> {
   return "";
 }
 
-async function hydrateCreativeThumbnails(items: any[]): Promise<any[]> {
-  const pendingByLink = new Map<string, any[]>();
-  items.filter((item) => !item["Thumb_Criativo"] && item["Link"]).forEach((item) => {
-    const sameLinkItems = pendingByLink.get(item["Link"]) || [];
-    sameLinkItems.push(item);
-    pendingByLink.set(item["Link"], sameLinkItems);
-  });
-  const pending = [...pendingByLink.entries()];
+async function resolveInstagramThumbnails(links: string[]): Promise<Record<string, string>> {
+  const pending = [...new Set(links)];
+  const thumbnails: Record<string, string> = {};
   let nextIndex = 0;
   const worker = async () => {
     while (nextIndex < pending.length) {
-      const [link, linkedItems] = pending[nextIndex++];
-      const thumbnail = await getInstagramThumb(link);
-      linkedItems.forEach((item) => { item["Thumb_Criativo"] = thumbnail; });
+      const link = pending[nextIndex++];
+      thumbnails[link] = await getInstagramThumb(link);
     }
   };
   await Promise.all(Array.from({ length: Math.min(MAX_THUMB_REQUESTS_IN_FLIGHT, pending.length) }, worker));
-  return items;
+  return thumbnails;
 }
 
 function parseCellVal(rowXml: string, col: string, rowNum: number, strings: string[]): string {
@@ -441,9 +448,10 @@ function parseCellVal(rowXml: string, col: string, rowNum: number, strings: stri
 
   const cellMatch = rowXml.match(new RegExp(`<c r="${col}${rowNum}"([^>]*)>(.*?)</c>`, "s"));
   if (!cellMatch) return "";
-  const attrs = cellMatch[1] || "";
-  const body = cellMatch[2] || "";
-  
+  return cellValueFromBody(cellMatch[1] || "", cellMatch[2] || "", strings);
+}
+
+function cellValueFromBody(attrs: string, body: string, strings: string[]): string {
   const fMatch = body.match(/<f[^>]*>(.*?)<\/f>/s);
   const vMatch = body.match(/<v[^>]*>(.*?)<\/v>/s);
   
@@ -472,19 +480,43 @@ function normalizeTabName(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 }
 
+// Lê todas as células de uma linha numa única varredura. Chamar parseCellVal
+// por célula criava duas RegExp novas por célula (o padrão inclui o número da
+// linha), o que levava o funil GP a ~500 MB de memória só nesse parse.
+function parseRowCells(rowXml: string, strings: string[]): Map<string, string> {
+  const cells = new Map<string, string>();
+  const cellTag = /<c r="([A-Z]+)\d+"([^>]*)>/g;
+  let match: RegExpExecArray | null;
+  while ((match = cellTag.exec(rowXml))) {
+    const [, column, attrs] = match;
+    if (attrs.endsWith("/")) {
+      if (!cells.has(column)) cells.set(column, "");
+      continue;
+    }
+    const bodyStart = cellTag.lastIndex;
+    const bodyEnd = rowXml.indexOf("</c>", bodyStart);
+    if (bodyEnd === -1) continue;
+    if (!cells.has(column)) cells.set(column, cellValueFromBody(attrs, rowXml.slice(bodyStart, bodyEnd), strings));
+    cellTag.lastIndex = bodyEnd + 4;
+  }
+  return cells;
+}
+
 function parseWorksheetRows(sheetXml: string, strings: string[]): any[] {
   const rows = sheetXml.match(/<row\b[^>]*r="\d+"[^>]*>[\s\S]*?<\/row>/g) || [];
   const headerRow = rows.find((row) => /<row\b[^>]*r="1"/.test(row));
   if (!headerRow) return [];
   const columns = [...headerRow.matchAll(/<c r="([A-Z]+)1"/g)].map((match) => match[1]);
-  const headers = columns.map((column) => parseCellVal(headerRow, column, 1, strings) || `Coluna ${column}`);
+  const headerCells = parseRowCells(headerRow, strings);
+  const headers = columns.map((column) => headerCells.get(column) || `Coluna ${column}`);
 
   return rows
     .map((row) => ({ row, rowNumber: Number(row.match(/<row\b[^>]*r="(\d+)"/)?.[1] || 0) }))
     .filter(({ rowNumber }) => rowNumber > 1)
-    .map(({ row, rowNumber }) => Object.fromEntries(
-      columns.map((column, index) => [headers[index], parseCellVal(row, column, rowNumber, strings)])
-    ));
+    .map(({ row }) => {
+      const cells = parseRowCells(row, strings);
+      return Object.fromEntries(columns.map((column, index) => [headers[index], cells.get(column) || ""]));
+    });
 }
 
 type FunnelSourceRows = {
@@ -618,7 +650,43 @@ async function fetchFunnelSourceRows(sheetId: string): Promise<FunnelSourceRows>
   }
 }
 
-async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
+// Reaproveita o resultado de cada planilha por um curto período, e usuários
+// abrindo o mesmo funil ao mesmo tempo compartilham um único download/parse
+// em vez de multiplicar o uso de memória.
+const FUNNEL_DATA_CACHE_TTL_MS = Number(process.env.DASHBOARD_FUNNEL_DATA_CACHE_TTL_MS || 60000);
+
+type FunnelSheetData = [PromiseSettledResult<FunnelSourceRows>, PromiseSettledResult<any[]>];
+const funnelDataCache = new Map<string, { data: Promise<FunnelSheetData>; expiresAt: number }>();
+
+function fetchFunnelSheetData(sheetId: string, bypassCache = false): Promise<FunnelSheetData> {
+  const now = Date.now();
+  for (const [key, entry] of funnelDataCache) {
+    if (entry.expiresAt <= now) funnelDataCache.delete(key);
+  }
+  const cached = funnelDataCache.get(sheetId);
+  // Sincronização manual pula o resultado pronto, mas ainda aproveita uma
+  // busca em andamento (ela já é tão recente quanto uma nova).
+  if (cached && (!bypassCache || cached.expiresAt === Infinity)) return cached.data;
+
+  const data = Promise.allSettled([
+    fetchFunnelSourceRows(sheetId),
+    fetchCriativos(sheetId)
+  ]);
+  // Enquanto a busca está em andamento, a entrada não expira; o TTL só começa
+  // a contar quando ela termina. Falhas não ficam em cache.
+  const entry = { data, expiresAt: Infinity };
+  funnelDataCache.set(sheetId, entry);
+  data.then(([source, creatives]) => {
+    if (source.status === "fulfilled" && creatives.status === "fulfilled") {
+      entry.expiresAt = Date.now() + FUNNEL_DATA_CACHE_TTL_MS;
+    } else if (funnelDataCache.get(sheetId) === entry) {
+      funnelDataCache.delete(sheetId);
+    }
+  });
+  return data;
+}
+
+async function fetchCriativos(sheetId: string): Promise<any[]> {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
     const response = await fetch(url);
@@ -656,11 +724,11 @@ async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
       const creativeXml = await zip.file(creativeSheet.file)?.async("text");
       const rowsFromNamedTab = creativeXml ? parseWorksheetRows(creativeXml, strings) : [];
       if (rowsFromNamedTab.length > 0) {
-        return hydrateCreativeThumbnails(rowsFromNamedTab.map((item: any) => ({
+        return rowsFromNamedTab.map((item: any) => ({
           "Criativos": item["Nome Criativo"] || item["Criativos"] || item["Nome do Anúncio"] || item["Nome"] || "",
           "Link": item["Link Criativo"] || item["Link"] || item["Link dos criativos"] || "",
           "Thumb_Criativo": item["Thumb_Criativo"] || item["Thumb Criativo"] || item["thumb_criativo"] || item["Thumbnail"] || item["Thumb"] || item["Imagem"] || item["Preview"] || item["Prévia"] || ""
-        })));
+        }));
       }
     }
 
@@ -787,9 +855,8 @@ async function fetchCriativosWithThumbs(sheetId: string): Promise<any[]> {
       }
     }
 
-    // Para itens com link do Instagram e sem thumb explícita, tentar resolver a thumb via OpenGraph
-    await hydrateCreativeThumbnails(items);
-    
+    // Thumbs do Instagram sem prévia explícita são resolvidas sob demanda pela
+    // aba Criativos (POST /api/creative-thumbnails), não aqui.
     if (items.length > 0) {
       return items;
     }
@@ -933,6 +1000,14 @@ async function startServer() {
     }
   });
 
+  app.post("/api/creative-thumbnails", async (req, res) => {
+    const links = req.body?.links;
+    if (!Array.isArray(links) || links.length > MAX_THUMB_LINKS_PER_REQUEST || links.some((link) => typeof link !== "string")) {
+      return res.status(400).json({ error: `Envie "links" como lista de até ${MAX_THUMB_LINKS_PER_REQUEST} URLs.` });
+    }
+    res.json({ thumbnails: await resolveInstagramThumbnails(links) });
+  });
+
   app.delete("/api/funnels/:funnelId", requireDashboardAdmin, async (req, res) => {
     try {
       const funnels = await loadFunnels();
@@ -951,6 +1026,7 @@ async function startServer() {
   app.get("/api/spreadsheet", async (req, res) => {
     try {
       const requestedProject = String(req.query.project || "estrategia");
+      const bypassCache = req.query.refresh === "1";
       const funnels = await loadFunnels();
       const aliases: Record<string, string> = { "1": "estrategia", "2": "gestao-ia" };
       const requestedIds = requestedProject === "all" || requestedProject === "consolidado" || requestedProject === "both"
@@ -1147,10 +1223,7 @@ function parseUtcToUtcMinus3(rawStr: any): { dateStr: string; formattedDisplay: 
       };
 
       const sources = await Promise.all(selectedFunnels.map(async (funnel) => {
-        const [funnelSourceResult, criativosResult] = await Promise.allSettled([
-          fetchFunnelSourceRows(funnel.sheetId),
-          fetchCriativosWithThumbs(funnel.sheetId)
-        ]);
+        const [funnelSourceResult, criativosResult] = await fetchFunnelSheetData(funnel.sheetId, bypassCache);
 
         const sourceError = funnelSourceResult.status === "rejected"
           ? (funnelSourceResult.reason?.message || "Não foi possível ler os dados de Meta e Compradores.")
